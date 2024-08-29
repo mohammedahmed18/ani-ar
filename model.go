@@ -1,6 +1,10 @@
 package main
 
 import (
+	"fmt"
+	"os/exec"
+
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -21,8 +25,7 @@ func initialModel() tea.Model {
 	ti := textinput.New()
 	ti.Placeholder = "Death note"
 	ti.Focus()
-	ti.CharLimit = 156
-	ti.Width = 20
+	ti.Width = 50
 
 	return AniModel{
 		textInput:                ti,
@@ -48,6 +51,11 @@ func (m AniModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyEnter:
 			if m.stage == 0 {
 				searchKey := m.textInput.Value()
+				// update stage
+				m.stage = 1
+				updatedModel, _ := m.Update(nil)
+				m = updatedModel.(AniModel)
+
 				choicesModel, c := m.choicesModelAnimeList.fetchChoices(func() []interface{} {
 					var anicli Anime3rb
 					results := anicli.search(searchKey)
@@ -58,10 +66,13 @@ func (m AniModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return b
 				}, searchKey)
 				m.choicesModelAnimeList = choicesModel.(ChoicesModel)
-				m.stage = 1
 				return m, c
 			}
 			if m.stage == 1 {
+				m.stage = 2
+				updatedModel, _ := m.Update(nil)
+				m = updatedModel.(AniModel)
+
 				// anime is selected let's fetch it's episodes
 				selectedAnime := m.choicesModelAnimeList.getSelectedChoice()
 				anime := selectedAnime.(AniResult)
@@ -77,16 +88,32 @@ func (m AniModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				m.choicesModelAnimeEpisode = newEpisodeModal.(ChoicesModel)
 
-				m.stage = 2
 				return m, c
+			}
+			if m.stage == 2 {
+				// play the episode
+				selectedEpisode := m.choicesModelAnimeEpisode.getSelectedChoice()
+				ep := selectedEpisode.(AniEpisode)
+
+				_, err := exec.Command("mpv", ep.url).Output()
+				if err != nil {
+					fmt.Printf("error %s", err)
+				}
+
 			}
 			return m, cmd
 		}
 
+	case spinner.TickMsg:
+		// send the tick message to the two choice lists
+		m1, c1 := m.choicesModelAnimeList.Update(msg)
+		m.choicesModelAnimeList = m1.(ChoicesModel)
+		m2, c2 := m.choicesModelAnimeEpisode.Update(msg)
+		m.choicesModelAnimeEpisode = m2.(ChoicesModel)
+		return m, tea.Batch(c1, c2)
 	case error:
 		m.err = msg
 		return m, nil
-
 	}
 
 	// only recieve updates for the main modal input when stage is 0 (searchin anime)

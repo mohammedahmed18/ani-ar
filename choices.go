@@ -25,7 +25,7 @@ type ChoicesModel struct {
 
 func getSpinnerForChoices() spinner.Model {
 	s := spinner.New()
-	s.Spinner = spinner.Globe
+	s.Spinner = spinner.Moon
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 	return s
 }
@@ -38,6 +38,7 @@ func getFilterTextInput() textinput.Model {
 	ti.Width = 20
 	return ti
 }
+
 func initialChoicesModelForAnimeTitles() ChoicesModel {
 	return ChoicesModel{
 		spinner:   getSpinnerForChoices(),
@@ -59,17 +60,10 @@ func initialChoicesModelForAnimeEpisode() ChoicesModel {
 		},
 	}
 }
+
 func (m ChoicesModel) getSelectedChoice() interface{} {
 	return m.choices[m.cursor]
 }
-
-// func (m ChoicesModel) selectChoice(selectFn func(choice interface{})) tea.Cmd {
-// 	selected := m.choices[m.cursor]
-// 	return func() tea.Msg {
-// 		selectFn(selected)
-// 		return nil
-// 	}
-// }
 
 func (m ChoicesModel) fetchChoices(searchfunc func() []interface{}, key string) (tea.Model, tea.Cmd) {
 	m.searchKey = key
@@ -98,8 +92,7 @@ func (m ChoicesModel) fetchChoices(searchfunc func() []interface{}, key string) 
 }
 
 func (m ChoicesModel) Init() tea.Cmd {
-
-	return tea.Batch(m.spinner.Tick)
+	return m.spinner.Tick
 }
 
 func (m ChoicesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -182,7 +175,6 @@ func (m ChoicesModel) View() string {
 				if !strings.Contains(strings.ToLower(formatted), strings.ToLower(filterKey)) {
 					continue
 				}
-
 			}
 
 			// Directly format each choice without extra styling
