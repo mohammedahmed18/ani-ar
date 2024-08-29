@@ -7,9 +7,10 @@ import (
 )
 
 type AniModel struct {
-	textInput             textinput.Model
-	choicesModelAnimeList ChoicesModel
-	err                   error
+	textInput                textinput.Model
+	choicesModelAnimeList    ChoicesModel
+	choicesModelAnimeEpisode ChoicesModel
+	err                      error
 	// stage 0 is search anime ,
 	// stage 1 is selecting the anime from the list
 	// stage 2 is selecting an episode
@@ -24,15 +25,16 @@ func initialModel() tea.Model {
 	ti.Width = 20
 
 	return AniModel{
-		textInput:             ti,
-		err:                   nil,
-		choicesModelAnimeList: initialChoicesModelForAnimeTitles(),
-		stage:                 0,
+		textInput:                ti,
+		err:                      nil,
+		choicesModelAnimeList:    initialChoicesModelForAnimeTitles(),
+		choicesModelAnimeEpisode: initialChoicesModelForAnimeEpisode(),
+		stage:                    0,
 	}
 }
 
 func (m AniModel) Init() tea.Cmd {
-	return m.choicesModelAnimeList.Init()
+	return tea.Batch(m.choicesModelAnimeList.Init(), m.choicesModelAnimeEpisode.Init())
 }
 
 func (m AniModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -61,8 +63,22 @@ func (m AniModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			if m.stage == 1 {
 				// anime is selected let's fetch it's episodes
-				// m.choicesModelAnimeList.selectChoice()
+				selectedAnime := m.choicesModelAnimeList.getSelectedChoice()
+				anime := selectedAnime.(AniResult)
+				newEpisodeModal, c := m.choicesModelAnimeEpisode.fetchChoices(func() []interface{} {
+					var anicli Anime3rb
+					episodes := anicli.getEpisodes(anime)
+					b := make([]interface{}, len(episodes))
+					for i := range episodes {
+						b[i] = episodes[i]
+					}
+					return b
+				}, anime.name+" episodes")
+
+				m.choicesModelAnimeEpisode = newEpisodeModal.(ChoicesModel)
+
 				m.stage = 2
+				return m, c
 			}
 			return m, cmd
 		}
@@ -82,6 +98,12 @@ func (m AniModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.stage == 1 {
 		newChoicesModel, _ := m.choicesModelAnimeList.Update(msg)
 		m.choicesModelAnimeList = newChoicesModel.(ChoicesModel)
+	}
+
+	// only recieve updates for choices modal for anime episodes when stage is 2 (selecting an episode)
+	if m.stage == 2 {
+		newChoicesModel, _ := m.choicesModelAnimeEpisode.Update(msg)
+		m.choicesModelAnimeEpisode = newChoicesModel.(ChoicesModel)
 	}
 
 	return m, cmd
@@ -110,6 +132,10 @@ func (m AniModel) View() string {
 
 	if m.stage == 1 {
 		msg += m.choicesModelAnimeList.View()
+	}
+
+	if m.stage == 2 {
+		msg += m.choicesModelAnimeEpisode.View()
 	}
 
 	return msg

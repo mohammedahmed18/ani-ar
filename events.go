@@ -2,24 +2,42 @@ package main
 
 // events
 
-// search anime
-type SearchAnimeEvent struct {
-	animeResult []AniResult
+// events
+/////////////////////////////////////////////////////////////////
+
+type ChoicesLoadingEvent struct{}
+
+func newChoicesLoadingEvent() ChoicesLoadingEvent {
+	return ChoicesLoadingEvent{}
 }
 
-func newSearchAnimeEvent(results []AniResult) SearchAnimeEvent {
-	return SearchAnimeEvent{
-		animeResult: results,
+/////////////////////////////////////////////////////////////////
+
+type ChoicesShownEvent struct {
+	results []interface{}
+}
+
+func newChoicesShownEvent(results []interface{}) ChoicesShownEvent {
+	return ChoicesShownEvent{
+		results: results,
 	}
 }
 
-// episode fetched
-type EpisodeFetchedEvent struct {
-	episodes []AniEpisode
+/////////////////////////////////////////////////////////////////
+
+type EpisodesLoadingEvent struct{}
+
+func newEpisodesLoadingEvent() EpisodesLoadingEvent {
+	return EpisodesLoadingEvent{}
 }
 
-func newEpisodeFetchedEvent(episodes []AniEpisode) EpisodeFetchedEvent {
-	return EpisodeFetchedEvent{
-		episodes: episodes,
+// ///////////////////////////////////////////////////////////////
+type EpisodesLoadedEvent struct {
+	results []interface{}
+}
+
+func newEpisodesLoadedEvent(results []interface{}) EpisodesLoadedEvent {
+	return EpisodesLoadedEvent{
+		results: results,
 	}
 }

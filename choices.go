@@ -10,24 +10,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// events
-type ChoicesLoadingEvent struct {
-}
-
-func newChoicesLoadingEvent() ChoicesLoadingEvent {
-	return ChoicesLoadingEvent{}
-}
-
-type ChoicesShownEvent struct {
-	results []interface{}
-}
-
-func newChoicesShownEvent(results []interface{}) ChoicesShownEvent {
-	return ChoicesShownEvent{
-		results: results,
-	}
-}
-
 type ChoicesModel struct {
 	choices      []interface{}
 	cursor       int
@@ -67,18 +49,27 @@ func initialChoicesModelForAnimeTitles() ChoicesModel {
 	}
 }
 
-func initialChoicesModelForAnimeEpisode() tea.Model {
+func initialChoicesModelForAnimeEpisode() ChoicesModel {
 	return ChoicesModel{
-		spinner: getSpinnerForChoices(),
+		spinner:   getSpinnerForChoices(),
+		textInput: getFilterTextInput(),
+		choiceFormatFunc: func(i interface{}) string {
+			episode := i.(AniEpisode)
+			return fmt.Sprintf("%v", episode.number)
+		},
 	}
 }
-
-func (m ChoicesModel) selectChoice(innerChoicesModal ChoicesModel) {
-	// init the inner modal
-	// show its spinner
-	// load its data
-	// show the data
+func (m ChoicesModel) getSelectedChoice() interface{} {
+	return m.choices[m.cursor]
 }
+
+// func (m ChoicesModel) selectChoice(selectFn func(choice interface{})) tea.Cmd {
+// 	selected := m.choices[m.cursor]
+// 	return func() tea.Msg {
+// 		selectFn(selected)
+// 		return nil
+// 	}
+// }
 
 func (m ChoicesModel) fetchChoices(searchfunc func() []interface{}, key string) (tea.Model, tea.Cmd) {
 	m.searchKey = key
