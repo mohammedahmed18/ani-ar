@@ -44,11 +44,7 @@ func (m AniModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case tea.KeyEnter:
-			if m.choicesModelAnimeList.resultsShown {
-				// if the results are shown then we can select an anime from a list
-			} else {
-				// if there is no results we fetch the results
-				// m.choicesModelAnimeList = m.choicesModelAnimeList.startLoading().(ChoicesModel)
+			if m.stage == 0 {
 				searchKey := m.textInput.Value()
 				choicesModel, c := m.choicesModelAnimeList.fetchChoices(func() []interface{} {
 					var anicli Anime3rb
@@ -63,7 +59,11 @@ func (m AniModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.stage = 1
 				return m, c
 			}
-
+			if m.stage == 1 {
+				// anime is selected let's fetch it's episodes
+				// m.choicesModelAnimeList.selectChoice()
+				m.stage = 2
+			}
 			return m, cmd
 		}
 

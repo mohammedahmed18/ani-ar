@@ -73,6 +73,13 @@ func initialChoicesModelForAnimeEpisode() tea.Model {
 	}
 }
 
+func (m ChoicesModel) selectChoice(innerChoicesModal ChoicesModel) {
+	// init the inner modal
+	// show its spinner
+	// load its data
+	// show the data
+}
+
 func (m ChoicesModel) fetchChoices(searchfunc func() []interface{}, key string) (tea.Model, tea.Cmd) {
 	m.searchKey = key
 
