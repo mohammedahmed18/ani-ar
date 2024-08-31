@@ -65,7 +65,10 @@ func (m ChoicesModel) getSelectedChoice() interface{} {
 	return m.choices[m.cursor]
 }
 
-func (m ChoicesModel) fetchChoices(searchfunc func() []interface{}, key string) (tea.Model, tea.Cmd) {
+func (m ChoicesModel) fetchChoices(
+	searchfunc func() []interface{},
+	key string,
+) (tea.Model, tea.Cmd) {
 	m.searchKey = key
 
 	// Show the spinner
@@ -165,7 +168,7 @@ func (m ChoicesModel) View() string {
 		displayedResults := 0
 		// Display choices
 		for i, r := range m.choices {
-			cursor := " " // no cursor
+			cursor := " "
 			if m.cursor == i {
 				cursor = ">"
 			}
@@ -177,13 +180,11 @@ func (m ChoicesModel) View() string {
 				}
 			}
 
-			// Directly format each choice without extra styling
 			displayedResults += 1
 			msg += fmt.Sprintf("%s %s\n", cursor, formatted)
 		}
 		if displayedResults == 0 {
 			msg += "No matched results!!\n"
-
 		}
 	}
 
