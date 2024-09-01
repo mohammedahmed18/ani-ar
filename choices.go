@@ -176,6 +176,8 @@ func (m ChoicesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ChoicesLoadingEvent:
 		m.loading = true
+		m.choices = []interface{}{}
+		m.resultsShown = false
 		return m, cmd
 
 	case ChoicesShownEvent:

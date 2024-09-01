@@ -19,6 +19,8 @@ type AniModel struct {
 	// stage 1 is selecting the anime from the list
 	// stage 2 is selecting an episode
 	stage int
+
+	info string
 }
 
 func initialModel() tea.Model {
@@ -49,11 +51,21 @@ func (m AniModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyCtrlC, tea.KeyEsc:
 			return m, tea.Quit
 
+		case tea.KeyCtrlB:
+			if m.stage == 1 {
+				m.stage = 0
+			} else if m.stage == 2 {
+				m.stage = 1
+			}
+			updatedModel, _ := m.Update(nil)
+			m = updatedModel.(AniModel)
+			return m, cmd
 		case tea.KeyEnter:
 			if m.stage == 0 {
 				searchKey := m.textInput.Value()
 				// update stage
 				m.stage = 1
+				m.info = "fetching data..."
 				updatedModel, _ := m.Update(nil)
 				m = updatedModel.(AniModel)
 
@@ -65,6 +77,7 @@ func (m AniModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 					return b
 				}, searchKey)
+				m.info = ""
 				m.choicesModelAnimeList = choicesModel.(ChoicesModel)
 				return m, c
 			}
@@ -150,6 +163,9 @@ func renderANewLine(msg string, highlight bool) string {
 
 func (m AniModel) View() string {
 	msg := ""
+
+	msg += m.info
+	msg += "\n"
 
 	if m.stage == 0 {
 		msg += renderANewLine("Search anime ", true)

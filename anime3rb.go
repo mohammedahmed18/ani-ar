@@ -63,7 +63,7 @@ func (a *Anime3rb) searchPages(key string, results []AniResult, page int) []AniR
 	doc, err := goquery.NewDocumentFromReader(res.Body)
 	queryResults := doc.Find(".search-results a")
 
-	if queryResults == nil || queryResults.Length() == 0 || len(results) >= 20 {
+	if queryResults == nil || queryResults.Length() == 0 {
 		return results
 	}
 	queryResults.Each(func(i int, result *goquery.Selection) {
@@ -95,6 +95,9 @@ func (a *Anime3rb) searchPages(key string, results []AniResult, page int) []AniR
 		})
 	})
 
+	if page == 3 {
+		return results
+	}
 	return a.searchPages(key, results, page+1)
 }
 
