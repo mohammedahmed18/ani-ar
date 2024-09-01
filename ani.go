@@ -1,13 +1,14 @@
 package main
 
 type AniResult struct {
-	name     string
-	episodes int
+	title       string
+	displayName string
+	episodes    int
 }
 
 type AniEpisode struct {
 	number int
-	url    string
+	getUrl func() string
 }
 
 type AnimeApi interface {

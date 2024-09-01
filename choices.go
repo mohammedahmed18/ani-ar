@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/spinner"
@@ -42,15 +43,19 @@ func getFilterTextInput() textinput.Model {
 }
 
 func initialChoicesModelForAnimeTitles() ChoicesModel {
-	vp := viewport.New(30, 20)
-
+	vp := viewport.New(120, 20)
+	vp.SetContent(`loading...`)
 	return ChoicesModel{
 		spinner:   getSpinnerForChoices(),
 		textInput: getFilterTextInput(),
 		viewport:  vp,
 		choiceFormatFunc: func(i interface{}) string {
 			anime := i.(AniResult)
-			return fmt.Sprintf("%s [%v episode(s)]", anime.name, anime.episodes)
+			suf := "episode"
+			if anime.episodes > 1 {
+				suf = "episodes"
+			}
+			return fmt.Sprintf("%s - %v %s", anime.displayName, anime.episodes, suf)
 		},
 	}
 }
@@ -63,30 +68,18 @@ func initialChoicesModelForAnimeEpisode() ChoicesModel {
 		viewport:  vp,
 		choiceFormatFunc: func(i interface{}) string {
 			episode := i.(AniEpisode)
-			return fmt.Sprintf("%v", episode.number)
+			return fmt.Sprintf("episode #%v", episode.number)
 		},
 	}
 }
 
 func (m ChoicesModel) getSelectedChoice() interface{} {
-	return m.choices[m.cursor]
+	return m.getFilteredChoices(m.choices)[m.cursor]
 }
 
-func (m ChoicesModel) setViewportContent(choices []interface{}) {
-	content := ""
-	// Display header
-	content += "Showing results for " + m.searchKey + "\n\n"
-
-	content += m.textInput.View()
-	content += "\n"
-
-	displayedResults := 0
-	// Display choices
-	for i, r := range choices {
-		cursor := " "
-		if m.cursor == i {
-			cursor = ">"
-		}
+func (m ChoicesModel) getFilteredChoices(choices []interface{}) []interface{} {
+	var filteredChoices []interface{}
+	for _, r := range choices {
 		formatted := m.choiceFormatFunc(r)
 		filterKey := m.textInput.Value()
 		if filterKey != "" {
@@ -94,15 +87,27 @@ func (m ChoicesModel) setViewportContent(choices []interface{}) {
 				continue
 			}
 		}
-
-		displayedResults += 1
-		content += fmt.Sprintf("%s %s\n", cursor, formatted)
+		filteredChoices = append(filteredChoices, r)
 	}
-	if displayedResults == 0 {
+	return filteredChoices
+}
+
+func (m ChoicesModel) getViewportContentFromChoices(choices []interface{}) string {
+	content := ""
+	// Display choices
+	for i, r := range m.getFilteredChoices(choices) {
+		cursor := " "
+		if m.cursor == i {
+			cursor = ">"
+		}
+		formatted := m.choiceFormatFunc(r)
+
+		content += fmt.Sprintf("%s %v- %s\n", cursor, i+1, formatted)
+	}
+	if len(choices) == 0 {
 		content += "No matched results!!\n"
 	}
-
-	m.viewport.SetContent(content)
+	return content
 }
 
 func (m ChoicesModel) fetchChoices(
@@ -135,11 +140,16 @@ func (m ChoicesModel) fetchChoices(
 }
 
 func (m ChoicesModel) Init() tea.Cmd {
-	return m.spinner.Tick
+	return tea.Batch(m.spinner.Tick, m.viewport.Init())
 }
 
 func (m ChoicesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmd tea.Cmd
+	var (
+		cmd   tea.Cmd
+		vpCmd tea.Cmd
+	)
+
+	m.viewport, vpCmd = m.viewport.Update(msg)
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -172,13 +182,11 @@ func (m ChoicesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.loading = false
 		m.choices = msg.results
 		m.resultsShown = true
-		m.setViewportContent(msg.results)
-		m.viewport.GotoBottom()
-		return m, nil
+		m.viewport.SetContent(m.getViewportContentFromChoices(msg.results))
+		return m, cmd
 
 	default:
-		var cmd tea.Cmd
-		return m, cmd
+		return m, tea.Batch(cmd, vpCmd)
 	}
 
 	// only update the input when results are shown
@@ -190,6 +198,7 @@ func (m ChoicesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.cursor = 0
 		}
 		m.textInput, _ = m.textInput.Update(msg)
+		m.viewport.SetContent(m.getViewportContentFromChoices(m.choices))
 	}
 
 	return m, cmd
@@ -204,6 +213,9 @@ func (m ChoicesModel) View() string {
 	}
 
 	if m.resultsShown {
+		msg += m.textInput.View()
+		msg += "\n"
+		msg += "Showing " + strconv.Itoa(len(m.choices)) + " results for " + m.searchKey + "\n\n"
 		msg += m.viewport.View()
 	}
 

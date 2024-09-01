@@ -42,6 +42,7 @@ func (m AniModel) Init() tea.Cmd {
 
 func (m AniModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.Type {
@@ -82,7 +83,7 @@ func (m AniModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						b[i] = episodes[i]
 					}
 					return b
-				}, anime.name+" episodes")
+				}, anime.displayName+" episodes")
 
 				m.choicesModelAnimeEpisode = newEpisodeModal.(ChoicesModel)
 
@@ -93,7 +94,7 @@ func (m AniModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				selectedEpisode := m.choicesModelAnimeEpisode.getSelectedChoice()
 				ep := selectedEpisode.(AniEpisode)
 
-				_, err := exec.Command("mpv", ep.url).Output()
+				_, err := exec.Command("mpv", ep.getUrl()).Output()
 				if err != nil {
 					fmt.Printf("error %s", err)
 				}
