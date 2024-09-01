@@ -57,8 +57,7 @@ func (m AniModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m = updatedModel.(AniModel)
 
 				choicesModel, c := m.choicesModelAnimeList.fetchChoices(func() []interface{} {
-					var anicli Anime3rb
-					results := anicli.search(searchKey)
+					results := getMainFetcher().search(searchKey)
 					b := make([]interface{}, len(results))
 					for i := range results {
 						b[i] = results[i]
@@ -77,8 +76,7 @@ func (m AniModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				selectedAnime := m.choicesModelAnimeList.getSelectedChoice()
 				anime := selectedAnime.(AniResult)
 				newEpisodeModal, c := m.choicesModelAnimeEpisode.fetchChoices(func() []interface{} {
-					var anicli Anime3rb
-					episodes := anicli.getEpisodes(anime)
+					episodes := getMainFetcher().getEpisodes(anime)
 					b := make([]interface{}, len(episodes))
 					for i := range episodes {
 						b[i] = episodes[i]

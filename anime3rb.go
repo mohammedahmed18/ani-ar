@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"regexp"
 	"time"
+
+	"github.com/PuerkitoBio/goquery"
 )
 
 type Anime3rb struct{}
@@ -37,34 +40,34 @@ func (a *Anime3rb) getToken() string {
 	}
 }
 
-func (a *Anime3rb) search(search string) []AniResult {
-	time.Sleep(time.Second * 1)
-	return []AniResult{
-		{
-			name:     search,
-			episodes: 12,
-		},
-		{
-			name:     search,
-			episodes: 12,
-		},
-		{
-			name:     search,
-			episodes: 12,
-		},
-		{
-			name:     search,
-			episodes: 12,
-		},
-		{
-			name:     search,
-			episodes: 12,
-		},
-		{
-			name:     search,
-			episodes: 12,
-		},
+func (a *Anime3rb) search(key string) []AniResult {
+	return a.searchPages(key, []AniResult{}, 1)
+}
+
+func (a *Anime3rb) searchPages(key string, results []AniResult, page int) []AniResult {
+	searchUrl := fmt.Sprintf("https://anime3rb.com/search?q=%s&page=%v", url.QueryEscape(key), page)
+	res, err := http.Get(searchUrl)
+	if err != nil {
+		fmt.Println(err.Error())
+		return nil
 	}
+
+	defer res.Body.Close()
+	doc, err := goquery.NewDocumentFromReader(res.Body)
+	queryResults := doc.Find(".search-results a")
+
+	if queryResults == nil || queryResults.Length() == 0 || len(results) >= 20 {
+		return results
+	}
+	queryResults.Each(func(i int, result *goquery.Selection) {
+		// For each item found, get the title
+		title := result.Find("h4").Text()
+		results = append(results, AniResult{
+			name: title,
+		})
+	})
+
+	return a.searchPages(key, results, page+1)
 }
 
 func (a *Anime3rb) getEpisodes(e AniResult) []AniEpisode {
