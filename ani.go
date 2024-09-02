@@ -7,8 +7,10 @@ type AniResult struct {
 }
 
 type AniEpisode struct {
-	number int
-	getUrl func() string
+	number  int
+	getUrl  func() string
+	result  AniResult
+	quality string // TODO: display the quality in the player title
 }
 
 type AnimeApi interface {

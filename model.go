@@ -107,7 +107,9 @@ func (m AniModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				selectedEpisode := m.choicesModelAnimeEpisode.getSelectedChoice()
 				ep := selectedEpisode.(AniEpisode)
 
-				_, err := exec.Command("mpv", ep.getUrl()).Output()
+				_, err := exec.Command("mpv",
+					fmt.Sprintf("--title=%s - episode %v", ep.result.title, ep.number),
+					ep.getUrl()).Output()
 				if err != nil {
 					fmt.Printf("error %s", err)
 				}

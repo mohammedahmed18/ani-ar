@@ -108,6 +108,7 @@ func (a *Anime3rb) getEpisodes(e AniResult) []AniEpisode {
 		episodes = append(episodes, AniEpisode{
 			number: episodeNum,
 			getUrl: getLazyEpisodeGetterFunc(e, episodeNum),
+			result: e,
 		})
 	}
 	return episodes

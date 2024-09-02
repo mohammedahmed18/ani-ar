@@ -160,7 +160,8 @@ func (m ChoicesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyDown:
 			autoUpdateViewPort = false
-			if m.cursor < len(m.choices)-1 {
+			filtered := m.getFilteredChoices(m.choices)
+			if m.cursor < len(filtered)-1 {
 				m.cursor++
 			}
 			lastVisibleItemCursor := m.firstChoiceVisibleCursor + vpHight - 1
