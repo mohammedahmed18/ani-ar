@@ -22,9 +22,12 @@ type ChoicesModel struct {
 	searchKey        string
 	choiceFormatFunc func(interface{}) string
 
-	textInput textinput.Model
-	viewport  viewport.Model
+	textInput                textinput.Model
+	viewport                 viewport.Model
+	firstChoiceVisibleCursor int
 }
+
+const vpHight = 20
 
 func getSpinnerForChoices() spinner.Model {
 	s := spinner.New()
@@ -43,7 +46,7 @@ func getFilterTextInput() textinput.Model {
 }
 
 func initialChoicesModelForAnimeTitles() ChoicesModel {
-	vp := viewport.New(120, 20)
+	vp := viewport.New(120, vpHight)
 	vp.SetContent(`loading...`)
 	return ChoicesModel{
 		spinner:   getSpinnerForChoices(),
@@ -61,7 +64,7 @@ func initialChoicesModelForAnimeTitles() ChoicesModel {
 }
 
 func initialChoicesModelForAnimeEpisode() ChoicesModel {
-	vp := viewport.New(30, 20)
+	vp := viewport.New(30, vpHight)
 	return ChoicesModel{
 		spinner:   getSpinnerForChoices(),
 		textInput: getFilterTextInput(),
@@ -148,9 +151,7 @@ func (m ChoicesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmd   tea.Cmd
 		vpCmd tea.Cmd
 	)
-
-	m.viewport, vpCmd = m.viewport.Update(msg)
-
+	autoUpdateViewPort := true
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.viewport.Width = msg.Width
@@ -158,12 +159,23 @@ func (m ChoicesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyDown:
+			autoUpdateViewPort = false
 			if m.cursor < len(m.choices)-1 {
 				m.cursor++
 			}
+			lastVisibleItemCursor := m.firstChoiceVisibleCursor + vpHight - 1
+			if m.cursor > lastVisibleItemCursor {
+				m.viewport.LineDown(1)
+				m.firstChoiceVisibleCursor++
+			}
 		case tea.KeyUp:
+			autoUpdateViewPort = false
 			if m.cursor > 0 {
 				m.cursor--
+			}
+			if m.cursor < m.firstChoiceVisibleCursor {
+				m.viewport.LineUp(1)
+				m.firstChoiceVisibleCursor--
 			}
 		case tea.KeyEnter:
 			return m, cmd
@@ -191,6 +203,10 @@ func (m ChoicesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(cmd, vpCmd)
 	}
 
+	if autoUpdateViewPort {
+		m.viewport, vpCmd = m.viewport.Update(msg)
+	}
+
 	// only update the input when results are shown
 	if m.resultsShown {
 		keymsg := msg.(tea.KeyMsg)
@@ -203,7 +219,7 @@ func (m ChoicesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewport.SetContent(m.getViewportContentFromChoices(m.choices))
 	}
 
-	return m, cmd
+	return m, tea.Batch(cmd, vpCmd)
 }
 
 func (m ChoicesModel) View() string {

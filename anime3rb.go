@@ -52,7 +52,7 @@ func (a *Anime3rb) search(key string) []AniResult {
 }
 
 func (a *Anime3rb) searchPages(key string, results []AniResult, page int) []AniResult {
-	searchUrl := fmt.Sprintf("https://anime3rb.com/search?q=%s&page=%v", url.QueryEscape(key), page)
+	searchUrl := fmt.Sprintf("%s/search?q=%s&page=%v", baseUrl, url.QueryEscape(key), page)
 	res, err := http.Get(searchUrl)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -147,7 +147,7 @@ func getVideoUrl(html string, res ...string) string {
 
 func getLazyEpisodeGetterFunc(anime AniResult, episodeNum int) func() string {
 	return func() string {
-		url := fmt.Sprintf("https://anime3rb.com/episode/%s/%d", anime.title, episodeNum)
+		url := fmt.Sprintf("%s/episode/%s/%d", baseUrl, anime.title, episodeNum)
 		res, err := http.Get(url)
 		if err != nil {
 			fmt.Println(err.Error())
