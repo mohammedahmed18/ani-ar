@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+
 	"github.com/ani/ani-ar/types"
 )
 
@@ -53,6 +54,7 @@ func (a Anime4up) Search(q string) []types.AniResult {
 	})
 	return results
 }
+
 func getEpisodesCountForAnime(link string) int {
 	res, _ := http.Get(link)
 	defer res.Body.Close()
@@ -96,7 +98,6 @@ func (a Anime4up) GetLazyVideoUrl(epUrl string) string {
 	form.Add("submit", "submit")
 
 	res1, err := http.PostForm(actionUrl, form)
-
 	if err != nil {
 		println(err.Error())
 		return ""
@@ -106,16 +107,17 @@ func (a Anime4up) GetLazyVideoUrl(epUrl string) string {
 	defer res1.Body.Close()
 
 	finalVideoUrl := ""
-	episodeServersDoc.Find("ul#episode-servers li").Each(func(i int, serverItem *goquery.Selection) {
-		episodeServer, _ := serverItem.Find("a").First().Attr("data-ep-url")
-		if episodeServer != "" {
-			videoUrl := a.extractVideoUrlFromEpisodeServer(episodeServer)
-			if videoUrl != "" {
-				finalVideoUrl = videoUrl
-				// return true
+	episodeServersDoc.Find("ul#episode-servers li").
+		Each(func(i int, serverItem *goquery.Selection) {
+			episodeServer, _ := serverItem.Find("a").First().Attr("data-ep-url")
+			if episodeServer != "" {
+				videoUrl := a.extractVideoUrlFromEpisodeServer(episodeServer)
+				if videoUrl != "" {
+					finalVideoUrl = videoUrl
+					// return true
+				}
 			}
-		}
-	})
+		})
 
 	return finalVideoUrl
 }
@@ -148,7 +150,13 @@ func getVideoFromVoe(link string) string {
 	forwardUrl = strings.TrimPrefix(forwardUrl, "'")
 	forwardUrl = strings.TrimSuffix(forwardUrl, "';")
 
-	res1, _ := http.Get(forwardUrl)
+	req, _ := http.NewRequest("get", forwardUrl, nil)
+	req.Header.Add(
+		"User-Agent",
+		"Mozilla/5.0 (X11; Linux x86_64; rv:129.0) Gecko/20100101 Firefox/129.0",
+	)
+	req.Header.Add("Accept", "text/html")
+	res1, _ := http.DefaultClient.Do(req)
 	b, _ = io.ReadAll(res1.Body)
 	defer res1.Body.Close()
 
