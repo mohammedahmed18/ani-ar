@@ -1,10 +1,11 @@
-package main
+package gui
 
 import (
 	"fmt"
 	"strconv"
 	"strings"
 
+	"github.com/ani/ani-ar/types"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -53,12 +54,12 @@ func initialChoicesModelForAnimeTitles() ChoicesModel {
 		textInput: getFilterTextInput(),
 		viewport:  vp,
 		choiceFormatFunc: func(i interface{}) string {
-			anime := i.(AniResult)
+			anime := i.(types.AniResult)
 			suf := "episode"
-			if anime.episodes > 1 {
+			if anime.Episodes > 1 {
 				suf = "episodes"
 			}
-			return fmt.Sprintf("%s - %v %s", anime.displayName, anime.episodes, suf)
+			return fmt.Sprintf("%s - %v %s", anime.DisplayName, anime.Episodes, suf)
 		},
 	}
 }
@@ -70,8 +71,8 @@ func initialChoicesModelForAnimeEpisode() ChoicesModel {
 		textInput: getFilterTextInput(),
 		viewport:  vp,
 		choiceFormatFunc: func(i interface{}) string {
-			episode := i.(AniEpisode)
-			return fmt.Sprintf("episode #%v", episode.number)
+			episode := i.(types.AniEpisode)
+			return fmt.Sprintf("episode #%v", episode.Number)
 		},
 	}
 }

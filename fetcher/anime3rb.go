@@ -1,4 +1,4 @@
-package main
+package fetcher
 
 import (
 	"encoding/json"
@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/ani/ani-ar/types"
 )
 
 type Anime3rb struct{}
@@ -47,11 +48,11 @@ func (a *Anime3rb) getToken() string {
 	}
 }
 
-func (a *Anime3rb) search(key string) []AniResult {
-	return a.searchPages(key, []AniResult{}, 1)
+func (a *Anime3rb) Search(key string) []types.AniResult {
+	return a.searchPages(key, []types.AniResult{}, 1)
 }
 
-func (a *Anime3rb) searchPages(key string, results []AniResult, page int) []AniResult {
+func (a *Anime3rb) searchPages(key string, results []types.AniResult, page int) []types.AniResult {
 	searchUrl := fmt.Sprintf("%s/search?q=%s&page=%v", baseUrl, url.QueryEscape(key), page)
 	res, err := http.Get(searchUrl)
 	if err != nil {
@@ -60,7 +61,7 @@ func (a *Anime3rb) searchPages(key string, results []AniResult, page int) []AniR
 	}
 
 	defer res.Body.Close()
-	doc, err := goquery.NewDocumentFromReader(res.Body)
+	doc, _ := goquery.NewDocumentFromReader(res.Body)
 	queryResults := doc.Find(".search-results a")
 
 	if queryResults == nil || queryResults.Length() == 0 {
@@ -88,10 +89,10 @@ func (a *Anime3rb) searchPages(key string, results []AniResult, page int) []AniR
 				}
 			}
 		})
-		results = append(results, AniResult{
-			title:       title,
-			displayName: displayName,
-			episodes:    episodes,
+		results = append(results, types.AniResult{
+			Title:       title,
+			DisplayName: displayName,
+			Episodes:    episodes,
 		})
 	})
 
@@ -101,14 +102,15 @@ func (a *Anime3rb) searchPages(key string, results []AniResult, page int) []AniR
 	return a.searchPages(key, results, page+1)
 }
 
-func (a *Anime3rb) getEpisodes(e AniResult) []AniEpisode {
-	var episodes []AniEpisode
-	for i := 0; i < e.episodes; i++ {
+func (a *Anime3rb) GetEpisodes(e types.AniResult) []types.AniEpisode {
+	var episodes []types.AniEpisode
+	for i := 0; i < e.Episodes; i++ {
 		episodeNum := i + 1
-		episodes = append(episodes, AniEpisode{
-			number: episodeNum,
-			getUrl: getLazyEpisodeGetterFunc(e, episodeNum),
-			result: e,
+		epUrl := fmt.Sprintf("%s/episode/%s/%d", baseUrl, e.Title, episodeNum)
+		episodes = append(episodes, types.AniEpisode{
+			Number:       episodeNum,
+			GetPlayerUrl: getLazyEpisodeGetterFunc(e, epUrl),
+			Url:          epUrl,
 		})
 	}
 	return episodes
@@ -146,9 +148,8 @@ func getVideoUrl(html string, res ...string) string {
 	return videos[0].Src
 }
 
-func getLazyEpisodeGetterFunc(anime AniResult, episodeNum int) func() string {
+func getLazyEpisodeGetterFunc(anime types.AniResult, url string) func() string {
 	return func() string {
-		url := fmt.Sprintf("%s/episode/%s/%d", baseUrl, anime.title, episodeNum)
 		res, err := http.Get(url)
 		if err != nil {
 			fmt.Println(err.Error())
