@@ -1,9 +1,11 @@
-package main
+package gui
 
 import (
 	"fmt"
 	"os/exec"
 
+	"github.com/ani/ani-ar/fetcher"
+	"github.com/ani/ani-ar/types"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -18,12 +20,12 @@ type AniModel struct {
 	// stage 0 is search anime ,
 	// stage 1 is selecting the anime from the list
 	// stage 2 is selecting an episode
-	stage int
-
-	info string
+	stage   int
+	fetcher fetcher.Fetcher
+	info    string
 }
 
-func initialModel() tea.Model {
+func InitialModel() tea.Model {
 	ti := textinput.New()
 	ti.Placeholder = "Death note"
 	ti.Focus()
@@ -34,6 +36,7 @@ func initialModel() tea.Model {
 		err:                      nil,
 		choicesModelAnimeList:    initialChoicesModelForAnimeTitles(),
 		choicesModelAnimeEpisode: initialChoicesModelForAnimeEpisode(),
+		fetcher:                  fetcher.GetDefaultFetcher(),
 		stage:                    0,
 	}
 }
@@ -70,7 +73,7 @@ func (m AniModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m = updatedModel.(AniModel)
 
 				choicesModel, c := m.choicesModelAnimeList.fetchChoices(func() []interface{} {
-					results := getMainFetcher().search(searchKey)
+					results := m.fetcher.Search(searchKey)
 					b := make([]interface{}, len(results))
 					for i := range results {
 						b[i] = results[i]
@@ -88,15 +91,15 @@ func (m AniModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				// anime is selected let's fetch it's episodes
 				selectedAnime := m.choicesModelAnimeList.getSelectedChoice()
-				anime := selectedAnime.(AniResult)
+				anime := selectedAnime.(types.AniResult)
 				newEpisodeModal, c := m.choicesModelAnimeEpisode.fetchChoices(func() []interface{} {
-					episodes := getMainFetcher().getEpisodes(anime)
+					episodes := m.fetcher.GetEpisodes(anime)
 					b := make([]interface{}, len(episodes))
 					for i := range episodes {
 						b[i] = episodes[i]
 					}
 					return b
-				}, anime.displayName+" episodes")
+				}, anime.DisplayName+" episodes")
 
 				m.choicesModelAnimeEpisode = newEpisodeModal.(ChoicesModel)
 
@@ -105,9 +108,11 @@ func (m AniModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.stage == 2 {
 				// play the episode
 				selectedEpisode := m.choicesModelAnimeEpisode.getSelectedChoice()
-				ep := selectedEpisode.(AniEpisode)
+				ep := selectedEpisode.(types.AniEpisode)
 
-				_, err := exec.Command("mpv", ep.getUrl()).Output()
+				epUrl := ep.GetPlayerUrl()
+				println("going to play " + epUrl)
+				_, err := exec.Command("mpv", epUrl).Output()
 				if err != nil {
 					fmt.Printf("error %s", err)
 				}

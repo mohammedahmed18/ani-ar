@@ -1,14 +1,15 @@
-package main
+package types
 
 type AniResult struct {
-	title       string
-	displayName string
-	episodes    int
+	Title       string
+	DisplayName string
+	Episodes    int
 }
 
 type AniEpisode struct {
-	number int
-	getUrl func() string
+	Number       int
+	Url          string
+	GetPlayerUrl func() string
 }
 
 type AnimeApi interface {
