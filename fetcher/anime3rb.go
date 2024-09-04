@@ -61,7 +61,7 @@ func (a *Anime3rb) searchPages(key string, results []types.AniResult, page int) 
 	}
 
 	defer res.Body.Close()
-	doc, err := goquery.NewDocumentFromReader(res.Body)
+	doc, _ := goquery.NewDocumentFromReader(res.Body)
 	queryResults := doc.Find(".search-results a")
 
 	if queryResults == nil || queryResults.Length() == 0 {
