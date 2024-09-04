@@ -1,6 +1,7 @@
 package fetcher
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -106,17 +107,19 @@ func (a Anime4up) GetLazyVideoUrl(epUrl string) string {
 	episodeServersDoc, _ := goquery.NewDocumentFromReader(res1.Body)
 	defer res1.Body.Close()
 
+	println(episodeServersDoc.Find("#episode-servers li:nth-child(").Text())
 	finalVideoUrl := ""
-	episodeServersDoc.Find("ul#episode-servers li").
-		Each(func(i int, serverItem *goquery.Selection) {
+	episodeServersDoc.Find("#episode-servers li").
+		EachWithBreak(func(i int, serverItem *goquery.Selection) bool {
 			episodeServer, _ := serverItem.Find("a").First().Attr("data-ep-url")
 			if episodeServer != "" {
 				videoUrl := a.extractVideoUrlFromEpisodeServer(episodeServer)
 				if videoUrl != "" {
 					finalVideoUrl = videoUrl
-					// return true
+					return false
 				}
 			}
+			return true
 		})
 
 	return finalVideoUrl
@@ -150,7 +153,8 @@ func getVideoFromVoe(link string) string {
 	forwardUrl = strings.TrimPrefix(forwardUrl, "'")
 	forwardUrl = strings.TrimSuffix(forwardUrl, "';")
 
-	req, _ := http.NewRequest("get", forwardUrl, nil)
+	req, _ := http.NewRequest("GET", forwardUrl, nil)
+	// important to get the mp4 link
 	req.Header.Add(
 		"User-Agent",
 		"Mozilla/5.0 (X11; Linux x86_64; rv:129.0) Gecko/20100101 Firefox/129.0",
@@ -163,6 +167,10 @@ func getVideoFromVoe(link string) string {
 	html = string(b)
 	re = regexp.MustCompile(`'mp4'[\s+]?:[\s+]?(.*)'`)
 	matches = re.FindStringSubmatch(html)
-	println(matches[0])
-	return ""
+	base64VideoUrl := strings.Split(matches[0], ":")[1]
+	base64VideoUrl = strings.TrimSpace(base64VideoUrl)
+	base64VideoUrl = strings.TrimPrefix(base64VideoUrl, "'")
+	base64VideoUrl = strings.TrimSuffix(base64VideoUrl, "'")
+	decoded, _ := base64.RawStdEncoding.DecodeString(base64VideoUrl)
+	return string(decoded)
 }
