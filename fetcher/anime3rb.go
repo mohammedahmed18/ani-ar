@@ -11,10 +11,15 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+
 	"github.com/ani/ani-ar/types"
 )
 
 type Anime3rb struct{}
+
+func getAnime3rbFetcher() Fetcher {
+	return &Anime3rb{}
+}
 
 type Ani3rbVideo struct {
 	Src string `json:"src"`

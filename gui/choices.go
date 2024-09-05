@@ -5,12 +5,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ani/ani-ar/types"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/ani/ani-ar/types"
 )
 
 type ChoicesModel struct {
@@ -32,7 +33,7 @@ const vpHight = 20
 
 func getSpinnerForChoices() spinner.Model {
 	s := spinner.New()
-	s.Spinner = spinner.Moon
+	s.Spinner = spinner.Line
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 	return s
 }
@@ -195,6 +196,7 @@ func (m ChoicesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	case ChoicesShownEvent:
+		m.cursor = 0
 		m.loading = false
 		m.choices = msg.results
 		m.resultsShown = true
@@ -229,7 +231,7 @@ func (m ChoicesModel) View() string {
 
 	if m.loading {
 		// Show spinner while loading
-		msg += m.spinner.View() + "\n"
+		msg += m.spinner.View() + " Loading...\n"
 	}
 
 	if m.resultsShown {

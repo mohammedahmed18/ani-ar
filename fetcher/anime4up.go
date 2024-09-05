@@ -1,16 +1,14 @@
 package fetcher
 
 import (
-	"encoding/base64"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
 
+	"github.com/ani/ani-ar/extractors"
 	"github.com/ani/ani-ar/types"
 )
 
@@ -18,7 +16,7 @@ const anime4upBaseUrl string = "https://aname4up.shop"
 
 type Anime4up struct{}
 
-func GetAnime4upFetcher() Fetcher {
+func getAnime4upFetcher() Fetcher {
 	return Anime4up{}
 }
 
@@ -107,7 +105,6 @@ func (a Anime4up) GetLazyVideoUrl(epUrl string) string {
 	episodeServersDoc, _ := goquery.NewDocumentFromReader(res1.Body)
 	defer res1.Body.Close()
 
-	println(episodeServersDoc.Find("#episode-servers li:nth-child(").Text())
 	finalVideoUrl := ""
 	episodeServersDoc.Find("#episode-servers li").
 		EachWithBreak(func(i int, serverItem *goquery.Selection) bool {
@@ -129,48 +126,15 @@ func (a Anime4up) extractVideoUrlFromEpisodeServer(episodeServer string) string 
 	u, _ := url.Parse(episodeServer)
 	switch u.Host {
 	case "voe.sx", "www.voe.sx":
-		l := getVideoFromVoe(episodeServer)
+		l := extractors.GetVideoFromVoe(episodeServer)
+		if l != "" {
+			return l
+		}
+	case "d000d.com":
+		l, _ := extractors.GetUrlFromDownstream(episodeServer)
 		if l != "" {
 			return l
 		}
 	}
 	return ""
-}
-
-func getVideoFromVoe(link string) string {
-	res, _ := http.Get(link)
-	b, _ := io.ReadAll(res.Body)
-	defer res.Body.Close()
-
-	html := string(b)
-
-	re := regexp.MustCompile(`window.location.href[\s+]=\s+'https(.*);`)
-	matches := re.FindStringSubmatch(html)
-
-	parts := strings.Split(matches[0], "=")
-	forwardUrl := parts[1]
-	forwardUrl = strings.TrimSpace(forwardUrl)
-	forwardUrl = strings.TrimPrefix(forwardUrl, "'")
-	forwardUrl = strings.TrimSuffix(forwardUrl, "';")
-
-	req, _ := http.NewRequest("GET", forwardUrl, nil)
-	// important to get the mp4 link
-	req.Header.Add(
-		"User-Agent",
-		"Mozilla/5.0 (X11; Linux x86_64; rv:129.0) Gecko/20100101 Firefox/129.0",
-	)
-	req.Header.Add("Accept", "text/html")
-	res1, _ := http.DefaultClient.Do(req)
-	b, _ = io.ReadAll(res1.Body)
-	defer res1.Body.Close()
-
-	html = string(b)
-	re = regexp.MustCompile(`'mp4'[\s+]?:[\s+]?(.*)'`)
-	matches = re.FindStringSubmatch(html)
-	base64VideoUrl := strings.Split(matches[0], ":")[1]
-	base64VideoUrl = strings.TrimSpace(base64VideoUrl)
-	base64VideoUrl = strings.TrimPrefix(base64VideoUrl, "'")
-	base64VideoUrl = strings.TrimSuffix(base64VideoUrl, "'")
-	decoded, _ := base64.RawStdEncoding.DecodeString(base64VideoUrl)
-	return string(decoded)
 }

@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"os/exec"
 
-	"github.com/ani/ani-ar/fetcher"
-	"github.com/ani/ani-ar/types"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/ani/ani-ar/fetcher"
+	"github.com/ani/ani-ar/types"
 )
 
 type AniModel struct {
@@ -111,10 +112,9 @@ func (m AniModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				ep := selectedEpisode.(types.AniEpisode)
 
 				epUrl := ep.GetPlayerUrl()
-				println("going to play " + epUrl)
 				_, err := exec.Command("mpv", epUrl).Output()
 				if err != nil {
-					fmt.Printf("error %s", err)
+					fmt.Printf("error playing the episode %s", err)
 				}
 
 			}
