@@ -1,12 +1,14 @@
 package types
 
 type AniResult struct {
-	Title       string
-	DisplayName string
-	Episodes    int
+	Title           string
+	DisplayName     string
+	Episodes        int
+	SelectedQuality string
 }
 
 type AniEpisode struct {
+	Anime        AniResult
 	Number       int
 	Url          string
 	GetPlayerUrl func() string

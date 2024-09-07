@@ -76,6 +76,7 @@ func (a Anime4up) GetEpisodes(r types.AniResult) []types.AniEpisode {
 			GetPlayerUrl: func() string {
 				return a.GetLazyVideoUrl(epUrl)
 			},
+			Anime: r,
 		})
 	})
 	return episodes

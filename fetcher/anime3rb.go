@@ -114,14 +114,15 @@ func (a *Anime3rb) GetEpisodes(e types.AniResult) []types.AniEpisode {
 		epUrl := fmt.Sprintf("%s/episode/%s/%d", baseUrl, e.Title, episodeNum)
 		episodes = append(episodes, types.AniEpisode{
 			Number:       episodeNum,
-			GetPlayerUrl: getLazyEpisodeGetterFunc(e, epUrl),
+			GetPlayerUrl: getLazyEpisodeGetterFunc(&e, epUrl),
 			Url:          epUrl,
+			Anime:        e,
 		})
 	}
 	return episodes
 }
 
-func getVideoUrl(html string, res ...string) string {
+func getVideoUrl(html string, res ...string) (string, string) {
 	re := regexp.MustCompile(`var\s+videos\s+=\s+\[((.|\n)*)\]`)
 	// Find the match
 	match := re.FindStringSubmatch(html)
@@ -141,19 +142,19 @@ func getVideoUrl(html string, res ...string) string {
 	err := json.Unmarshal([]byte(stringifyArray), &videos)
 	if err != nil {
 		fmt.Println("error while parsing videos " + err.Error())
-		return ""
+		return "", ""
 	}
 	for _, v := range videos {
 		for _, r := range res {
 			if v.Res == r {
-				return v.Src
+				return v.Src, v.Res
 			}
 		}
 	}
-	return videos[0].Src
+	return videos[0].Src, videos[0].Res
 }
 
-func getLazyEpisodeGetterFunc(anime types.AniResult, url string) func() string {
+func getLazyEpisodeGetterFunc(anime *types.AniResult, url string) func() string {
 	return func() string {
 		res, err := http.Get(url)
 		if err != nil {
@@ -181,7 +182,8 @@ func getLazyEpisodeGetterFunc(anime types.AniResult, url string) func() string {
 			res, _ := http.Get(unescapedURL)
 			b, _ := io.ReadAll(res.Body)
 			defer res.Body.Close()
-			vidUrl := getVideoUrl(string(b), "720", "480")
+			vidUrl, finalRes := getVideoUrl(string(b), "720", "480")
+			anime.SelectedQuality = finalRes
 			return vidUrl
 		} else {
 			fmt.Println("No URL found")

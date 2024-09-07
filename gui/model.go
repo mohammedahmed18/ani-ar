@@ -112,7 +112,12 @@ func (m AniModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				ep := selectedEpisode.(types.AniEpisode)
 
 				epUrl := ep.GetPlayerUrl()
-				_, err := exec.Command("mpv", epUrl).Output()
+
+				title := fmt.Sprintf("%s - episode %v - %s", ep.Anime.DisplayName, ep.Number, ep.Anime.SelectedQuality)
+				_, err := exec.Command(
+					"mpv",
+					"--title="+title,
+					 epUrl).Output()
 				if err != nil {
 					fmt.Printf("error playing the episode %s", err)
 				}
