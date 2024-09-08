@@ -2,7 +2,6 @@ package gui
 
 import (
 	"fmt"
-	"os/exec"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -10,6 +9,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/ani/ani-ar/fetcher"
+	"github.com/ani/ani-ar/player"
 	"github.com/ani/ani-ar/types"
 )
 
@@ -114,10 +114,7 @@ func (m AniModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				epUrl := ep.GetPlayerUrl()
 
 				title := fmt.Sprintf("%s - episode %v - %s", ep.Anime.DisplayName, ep.Number, ep.Anime.SelectedQuality)
-				_, err := exec.Command(
-					"mpv",
-					"--title="+title,
-					 epUrl).Output()
+				err := player.RunVideo(epUrl, title)
 				if err != nil {
 					fmt.Printf("error playing the episode %s", err)
 				}
