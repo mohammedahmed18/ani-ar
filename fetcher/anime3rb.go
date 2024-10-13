@@ -123,7 +123,7 @@ func (a *Anime3rb) GetEpisodes(e types.AniResult) []types.AniEpisode {
 }
 
 func getVideoUrl(html string, res ...string) (string, string) {
-	re := regexp.MustCompile(`var\s+videos\s+=\s+\[((.|\n)*)\]`)
+	re := regexp.MustCompile(`var\s+videos\s+=\s+\[((.|\n)*)\},\n+\s+\]`)
 	// Find the match
 	match := re.FindStringSubmatch(html)
 	parts := strings.Split(match[0], "videos =")
@@ -133,7 +133,6 @@ func getVideoUrl(html string, res ...string) (string, string) {
 	for _, attr := range attrs {
 		stringifyArray = strings.ReplaceAll(stringifyArray, attr, fmt.Sprintf("\"%s\"", attr))
 	}
-
 	// remove trailing comma from last object
 	re = regexp.MustCompile(`\},\n+\s+\]`)
 	stringifyArray = re.ReplaceAllString(stringifyArray, "}]")
