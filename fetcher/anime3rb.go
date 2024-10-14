@@ -53,11 +53,24 @@ func (a *Anime3rb) getToken() string {
 	}
 }
 
-func (a *Anime3rb) Search(key string) []types.AniResult {
-	return a.searchPages(key, []types.AniResult{}, 1)
+func (a *Anime3rb) GetAnimeResult(title string) *types.AniResult {
+	results := a.searchPages(title, []types.AniResult{}, 1, 1)
+	if len(results) > 0 {
+		return &results[0]
+	}
+	return nil
 }
 
-func (a *Anime3rb) searchPages(key string, results []types.AniResult, page int) []types.AniResult {
+func (a *Anime3rb) Search(key string) []types.AniResult {
+	return a.searchPages(key, []types.AniResult{}, 1, -1)
+}
+
+func (a *Anime3rb) searchPages(
+	key string,
+	results []types.AniResult,
+	page int,
+	limit int,
+) []types.AniResult {
 	searchUrl := fmt.Sprintf("%s/search?q=%s&page=%v", baseUrl, url.QueryEscape(key), page)
 	res, err := http.Get(searchUrl)
 	if err != nil {
@@ -69,6 +82,9 @@ func (a *Anime3rb) searchPages(key string, results []types.AniResult, page int) 
 	doc, _ := goquery.NewDocumentFromReader(res.Body)
 	queryResults := doc.Find(".search-results a")
 
+	if limit > 0 && queryResults.Length() > limit {
+		return results
+	}
 	if queryResults == nil || queryResults.Length() == 0 {
 		return results
 	}
@@ -104,7 +120,7 @@ func (a *Anime3rb) searchPages(key string, results []types.AniResult, page int) 
 	if page == 3 {
 		return results
 	}
-	return a.searchPages(key, results, page+1)
+	return a.searchPages(key, results, page+1, limit)
 }
 
 func (a *Anime3rb) GetEpisodes(e types.AniResult) []types.AniEpisode {

@@ -139,3 +139,7 @@ func (a Anime4up) extractVideoUrlFromEpisodeServer(episodeServer string) string 
 	}
 	return ""
 }
+
+func (a Anime4up) GetAnimeResult(string) *types.AniResult {
+	return nil
+}

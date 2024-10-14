@@ -7,6 +7,7 @@ import (
 )
 
 type Fetcher interface {
+	GetAnimeResult(string) *types.AniResult
 	Search(string) []types.AniResult
 	GetEpisodes(types.AniResult) []types.AniEpisode
 }
@@ -27,7 +28,7 @@ func registerFetcher(name string, f Fetcher) error {
 	return nil
 }
 
-func getFetcher(name string) (Fetcher, error) {
+func GetFetcher(name string) (Fetcher, error) {
 	if f, ok := fetchers[name]; ok {
 		return f, nil
 	}
@@ -36,6 +37,6 @@ func getFetcher(name string) (Fetcher, error) {
 
 // TODO: allow user to select the fetcher through args or something
 func GetDefaultFetcher() Fetcher {
-	f, _ := getFetcher("anime3rb")
+	f, _ := GetFetcher("anime3rb")
 	return f
 }
