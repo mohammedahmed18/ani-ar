@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -54,22 +55,57 @@ func (a *Anime3rb) getToken() string {
 }
 
 func (a *Anime3rb) GetAnimeResult(title string) *types.AniResult {
-	results := a.searchPages(title, []types.AniResult{}, 1, 1)
-	if len(results) > 0 {
-		return &results[0]
+	displayNameRe := regexp.MustCompile(
+		`<h1\s+class="text-2xl font-bold uppercase inline">(.*)<\/h1>`,
+	)
+	episodesRe := regexp.MustCompile(`<p class="(.*)">الحلقات<\/p>\n+<p(.*)<\/p>`)
+	animePageUrl := fmt.Sprintf("%s/titles/%s", baseUrl, title)
+	res, err := http.Get(animePageUrl)
+	if res.StatusCode != 200 || err != nil {
+		return nil
 	}
-	return nil
+	log.Println("found anime page : status 200 OK")
+	defer res.Body.Close()
+	htmlBytes, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil
+	}
+	log.Println("parsing the html document to extract info...")
+	displayNameMatches := displayNameRe.FindStringSubmatch(string(htmlBytes))
+	episodeNumberMatches := episodesRe.FindStringSubmatch(string(htmlBytes))
+
+	displayNameDoc, err := goquery.NewDocumentFromReader(strings.NewReader(displayNameMatches[0]))
+	if err != nil {
+		return nil
+	}
+	episodeNumberDoc, err := goquery.NewDocumentFromReader(
+		strings.NewReader(episodeNumberMatches[0]),
+	)
+	if err != nil {
+		return nil
+	}
+
+	displayName := displayNameDoc.Find("span:nth-child(1)").Text()
+	episodesCount := episodeNumberDoc.Find("p:nth-child(2)").Text()
+	epCoutnInt, _ := strconv.Atoi(episodesCount)
+
+	r := &types.AniResult{
+		Title:       title,
+		DisplayName: displayName,
+		Episodes:    epCoutnInt,
+	}
+	log.Printf("found anime info %v", r)
+	return r
 }
 
 func (a *Anime3rb) Search(key string) []types.AniResult {
-	return a.searchPages(key, []types.AniResult{}, 1, -1)
+	return a.searchPages(key, []types.AniResult{}, 1)
 }
 
 func (a *Anime3rb) searchPages(
 	key string,
 	results []types.AniResult,
 	page int,
-	limit int,
 ) []types.AniResult {
 	searchUrl := fmt.Sprintf("%s/search?q=%s&page=%v", baseUrl, url.QueryEscape(key), page)
 	res, err := http.Get(searchUrl)
@@ -82,9 +118,6 @@ func (a *Anime3rb) searchPages(
 	doc, _ := goquery.NewDocumentFromReader(res.Body)
 	queryResults := doc.Find(".search-results a")
 
-	if limit > 0 && queryResults.Length() > limit {
-		return results
-	}
 	if queryResults == nil || queryResults.Length() == 0 {
 		return results
 	}
@@ -120,7 +153,7 @@ func (a *Anime3rb) searchPages(
 	if page == 3 {
 		return results
 	}
-	return a.searchPages(key, results, page+1, limit)
+	return a.searchPages(key, results, page+1)
 }
 
 func (a *Anime3rb) GetEpisodes(e types.AniResult) []types.AniEpisode {

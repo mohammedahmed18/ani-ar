@@ -67,8 +67,10 @@ func main() {
 					}
 					episodes := fetcher.GetDefaultFetcher().GetEpisodes(*result)
 					ep := episodes[episode-1]
+					log.Println("getting the episode video...")
 					videoUrl := ep.GetPlayerUrl()
-					return player.RunVideo(videoUrl, fmt.Sprintf("%s-episode-%v", title, episode+1))
+					log.Println("found it")
+					return player.RunVideo(videoUrl, fmt.Sprintf("%s-episode-%v", title, episode))
 				},
 			},
 			{
