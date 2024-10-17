@@ -99,6 +99,7 @@ func (a *Anime3rb) GetAnimeResult(title string) *types.AniResult {
 }
 
 func (a *Anime3rb) Search(key string) []types.AniResult {
+	log.Println("searching...")
 	return a.searchPages(key, []types.AniResult{}, 1)
 }
 
@@ -107,6 +108,9 @@ func (a *Anime3rb) searchPages(
 	results []types.AniResult,
 	page int,
 ) []types.AniResult {
+	if len(results) > 20 {
+		return results
+	}
 	searchUrl := fmt.Sprintf("%s/search?q=%s&page=%v", baseUrl, url.QueryEscape(key), page)
 	res, err := http.Get(searchUrl)
 	if err != nil {

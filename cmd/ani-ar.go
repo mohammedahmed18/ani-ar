@@ -32,7 +32,8 @@ func main() {
 					},
 				},
 				Action: func(ctx *cli.Context) error {
-					results := fetcher.GetDefaultFetcher().Search(ctx.String("q"))
+					q := ctx.String("q")
+					results := fetcher.GetDefaultFetcher().Search(q)
 					if len(results) == 0 {
 						return errors.New("no results found")
 					}
@@ -45,13 +46,8 @@ func main() {
 			},
 			{
 				Name: "watch",
+				Args: true,
 				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:     "title",
-						Value:    "",
-						Usage:    "the title of the anime",
-						Required: true,
-					},
 					&cli.IntFlag{
 						Name:  "episode",
 						Value: 1,
@@ -59,7 +55,7 @@ func main() {
 					},
 				},
 				Action: func(ctx *cli.Context) error {
-					title := ctx.String("title")
+					title := ctx.Args().First()
 					episode := ctx.Int("episode")
 					result := fetcher.GetDefaultFetcher().GetAnimeResult(title)
 					if result == nil {
@@ -75,13 +71,8 @@ func main() {
 			},
 			{
 				Name: "download",
+				Args: true,
 				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:     "title",
-						Value:    "",
-						Usage:    "the title of the anime",
-						Required: true,
-					},
 					&cli.IntFlag{
 						Name:  "episode",
 						Value: 0,
@@ -91,7 +82,7 @@ func main() {
 				// Aliases: []string{""},
 				Usage: "download anime episode or download all episodes",
 				Action: func(cCtx *cli.Context) error {
-					animeTitle := cCtx.String("title")
+					animeTitle := cCtx.Args().First()
 					animeEpisode := cCtx.Int("episode")
 					path := filepath.Join("anime/")
 					os.MkdirAll(path, 0777)
