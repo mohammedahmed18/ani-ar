@@ -97,17 +97,21 @@ func (m ChoicesModel) getFilteredChoices(choices []interface{}) []interface{} {
 	return filteredChoices
 }
 
-func (m ChoicesModel) getViewportContentFromChoices(choices []interface{}) string {
+func (m ChoicesModel) getViewportContentFromChoices(choices []interface{}, cursor int) string {
 	content := ""
+	if cursor == -1 {
+		cursor = m.cursor
+	}
 	// Display choices
-	for i, r := range m.getFilteredChoices(choices) {
-		cursor := " "
-		if m.cursor == i {
-			cursor = ">"
+	filtered := m.getFilteredChoices(choices)
+	for i, r := range filtered {
+		displayCursor := " "
+		if cursor == i {
+			displayCursor = ">"
 		}
 		formatted := m.choiceFormatFunc(r)
 
-		content += fmt.Sprintf("%s %v- %s\n", cursor, i+1, formatted)
+		content += fmt.Sprintf("%s %v- %s\n", displayCursor, i+1, formatted)
 	}
 	if len(choices) == 0 {
 		content += "No matched results!!\n"
@@ -200,7 +204,7 @@ func (m ChoicesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.loading = false
 		m.choices = msg.results
 		m.resultsShown = true
-		m.viewport.SetContent(m.getViewportContentFromChoices(msg.results))
+		m.viewport.SetContent(m.getViewportContentFromChoices(msg.results, 0))
 		return m, cmd
 
 	default:
@@ -213,14 +217,14 @@ func (m ChoicesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// only update the input when results are shown
 	if m.resultsShown {
-		keymsg := msg.(tea.KeyMsg)
-
-		//  move cursor to top when filtering
-		if keymsg.Type != tea.KeyDown && keymsg.Type != tea.KeyUp {
-			m.cursor = 0
-		}
+		keyType, ok := msg.(tea.KeyMsg)
 		m.textInput, _ = m.textInput.Update(msg)
-		m.viewport.SetContent(m.getViewportContentFromChoices(m.choices))
+		m.viewport.SetContent(m.getViewportContentFromChoices(m.choices, -1))
+		if keyType.Type != tea.KeyUp && keyType.Type != tea.KeyDown && ok {
+			m.cursor = 0
+			m.viewport.GotoTop()
+			m.viewport.SetContent(m.getViewportContentFromChoices(m.choices, -1))
+		}
 	}
 
 	return m, tea.Batch(cmd, vpCmd)

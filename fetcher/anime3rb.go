@@ -234,7 +234,7 @@ func getLazyEpisodeGetterFunc(anime *types.AniResult, url string) func() string 
 			res, _ := http.Get(unescapedURL)
 			b, _ := io.ReadAll(res.Body)
 			defer res.Body.Close()
-			vidUrl, finalRes := getVideoUrl(string(b), "720", "480")
+			vidUrl, finalRes := getVideoUrl(string(b), "480")
 			anime.SelectedQuality = finalRes
 			return vidUrl
 		} else {

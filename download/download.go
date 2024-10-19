@@ -97,7 +97,7 @@ func (d *Downloader) downloadEpisodeToDisk(episode types.AniEpisode, path string
 		file:   out,
 		reader: resp.Body,
 		onProgress: func(ratio float64) {
-			p.Send(float64(ratio))
+			p.Send(progressMsg(ratio))
 		},
 	}
 

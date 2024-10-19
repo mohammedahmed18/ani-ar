@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/urfave/cli/v2"
@@ -47,43 +48,34 @@ func main() {
 			{
 				Name: "watch",
 				Args: true,
-				Flags: []cli.Flag{
-					&cli.IntFlag{
-						Name:  "episode",
-						Value: 1,
-						Usage: "the episode number",
-					},
-				},
 				Action: func(ctx *cli.Context) error {
 					title := ctx.Args().First()
-					episode := ctx.Int("episode")
+					episode := ctx.Args().Get(1)
+					animeEpisode, _ := strconv.Atoi(episode)
 					result := fetcher.GetDefaultFetcher().GetAnimeResult(title)
 					if result == nil {
 						return errors.New("can't find anime")
 					}
 					episodes := fetcher.GetDefaultFetcher().GetEpisodes(*result)
-					ep := episodes[episode-1]
+					ep := episodes[animeEpisode-1]
 					log.Println("getting the episode video...")
 					videoUrl := ep.GetPlayerUrl()
 					log.Println("found it")
-					return player.RunVideo(videoUrl, fmt.Sprintf("%s-episode-%v", title, episode))
+					return player.RunVideo(
+						videoUrl,
+						fmt.Sprintf("%s-episode-%v", title, animeEpisode),
+					)
 				},
 			},
 			{
 				Name: "download",
 				Args: true,
-				Flags: []cli.Flag{
-					&cli.IntFlag{
-						Name:  "episode",
-						Value: 0,
-						Usage: "the episode number",
-					},
-				},
 				// Aliases: []string{""},
 				Usage: "download anime episode or download all episodes",
-				Action: func(cCtx *cli.Context) error {
-					animeTitle := cCtx.Args().First()
-					animeEpisode := cCtx.Int("episode")
+				Action: func(ctx *cli.Context) error {
+					animeTitle := ctx.Args().First()
+					episode := ctx.Args().Get(1)
+					animeEpisode, _ := strconv.Atoi(episode)
 					path := filepath.Join("anime/")
 					os.MkdirAll(path, 0777)
 					if animeEpisode == 0 {

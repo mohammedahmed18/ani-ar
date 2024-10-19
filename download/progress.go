@@ -13,7 +13,7 @@ var helpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#626262")).Render
 
 const (
 	padding  = 2
-	maxWidth = 80
+	maxWidth = 100
 )
 
 type progressMsg float64
@@ -38,9 +38,6 @@ func (m model) Init() tea.Cmd {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		return m, tea.Quit
-
 	case tea.WindowSizeMsg:
 		m.progress.Width = msg.Width - padding*2 - 4
 		if m.progress.Width > maxWidth {
@@ -77,9 +74,6 @@ func (m model) View() string {
 	if m.err != nil {
 		return "Error downloading: " + m.err.Error() + "\n"
 	}
-
 	pad := strings.Repeat(" ", padding)
-	return "\n" +
-		pad + m.progress.View() + "\n\n" +
-		pad + helpStyle("Press any key to quit")
+	return "\n" + pad + m.progress.View() + "\n\n"
 }
