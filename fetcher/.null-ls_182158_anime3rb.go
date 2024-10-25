@@ -58,7 +58,7 @@ func (a *Anime3rb) GetAnimeResult(title string) *types.AniResult {
 	displayNameRe := regexp.MustCompile(
 		`<h1\s+class="text-2xl font-bold uppercase inline">(.*)<\/h1>`,
 	)
-	episodesRe := regexp.MustCompile(`<p class="(.*)">الحلقات<\/p>\n+\s+<p(.*)<\/p>`)
+	episodesRe := regexp.MustCompile(`<p class="(.*)">الحلقات<\/p>\n+<p(.*)<\/p>`)
 	animePageUrl := fmt.Sprintf("%s/titles/%s", baseUrl, title)
 	res, err := http.Get(animePageUrl)
 	if res.StatusCode != 200 || err != nil {
@@ -70,8 +70,8 @@ func (a *Anime3rb) GetAnimeResult(title string) *types.AniResult {
 	if err != nil {
 		return nil
 	}
-	println(animePageUrl)
 	log.Println("parsing the html document to extract info...")
+	println(string(htmlBytes))
 	displayNameMatches := displayNameRe.FindStringSubmatch(string(htmlBytes))
 	episodeNumberMatches := episodesRe.FindStringSubmatch(string(htmlBytes))
 
