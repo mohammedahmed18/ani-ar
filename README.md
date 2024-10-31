@@ -15,6 +15,8 @@ ani-ar search -q "hunter x hunter"
 
 ## watch anime episode
 
+> you should have either `mpv` or `vlc` to be able to stream the video.
+
 ```bash
 ani-ar watch [anime-title] [episode-number]
 ani-ar watch hunter-x-hunter-2011 50
