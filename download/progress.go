@@ -39,9 +39,11 @@ func (m model) Init() tea.Cmd {
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.Type{
-    // case ""
+		switch msg.Type {
+		case tea.KeyCtrlC, tea.KeyEsc:
+			return m, tea.Quit
 		}
+		return m, nil
 	case tea.WindowSizeMsg:
 		m.progress.Width = msg.Width - padding*2 - 4
 		if m.progress.Width > maxWidth {
@@ -79,5 +81,5 @@ func (m model) View() string {
 		return "Error downloading: " + m.err.Error() + "\n"
 	}
 	pad := strings.Repeat(" ", padding)
-	return "\n" + pad + m.progress.View() + "\n\n"
+	return "\n" + pad + m.progress.View() + "\n\n" + "** double press ctrl+c to cancel download and exit the program **" + "\n"
 }
