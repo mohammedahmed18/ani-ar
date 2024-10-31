@@ -39,8 +39,8 @@ func (m model) Init() tea.Cmd {
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.Type{
-    // case ""
+		switch msg.Type {
+		// case ""
 		}
 	case tea.WindowSizeMsg:
 		m.progress.Width = msg.Width - padding*2 - 4

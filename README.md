@@ -1,9 +1,38 @@
 ## Ani-ar
 
+## Interactive search
 
-### example
 ```bash
-ani-ar search -q "hunter x hunter"
-# copy the title
-ani-ar watch hunter-x-hunter-2011 5 # this will play the episode 5 of hunter x hunter (2011)
+ani-ar
 ```
+
+## search anime title
+
+```bash
+ani-ar search -q [search key]
+ani-ar search -q "hunter x hunter"
+```
+
+## watch anime episode
+
+```bash
+ani-ar watch [anime-title] [episode-number]
+ani-ar watch hunter-x-hunter-2011 50
+```
+
+
+## download anime episode
+
+```bash
+ani-ar download [anime-title] [episode-number] [folder-path]
+ani-ar download hunter-x-hunter-2011 50 ~/Documents/anime/hunter-x-hunter/
+```
+
+## download all anime episodes (use 0 as episode number)
+
+```bash
+ani-ar download [anime-title] 0 [folder-path]
+ani-ar download hunter-x-hunter-2011 0 ~/Documents/anime/hunter-x-hunter/
+```
+
+

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"strconv"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -75,14 +74,15 @@ func main() {
 				Action: func(ctx *cli.Context) error {
 					animeTitle := ctx.Args().First()
 					episode := ctx.Args().Get(1)
+					folderPath := ctx.Args().Get(2)
 					animeEpisode, _ := strconv.Atoi(episode)
-					path := filepath.Join("anime/")
-					os.MkdirAll(path, 0777)
+					os.MkdirAll(folderPath, 0777)
 					if animeEpisode == 0 {
-						return download.GetDownloader("").DownloadAllEpisodes(animeTitle, path)
+						return download.GetDownloader("").
+							DownloadAllEpisodes(animeTitle, folderPath)
 					}
 					return download.GetDownloader("").
-						DownloadEpisode(animeTitle, animeEpisode, path)
+						DownloadEpisode(animeTitle, animeEpisode, folderPath)
 				},
 			},
 		},
