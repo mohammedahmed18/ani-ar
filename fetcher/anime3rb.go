@@ -70,7 +70,7 @@ func (a *Anime3rb) GetAnimeResult(title string) *types.AniResult {
 	if err != nil {
 		return nil
 	}
-	println(animePageUrl)
+
 	log.Println("parsing the html document to extract info...")
 	displayNameMatches := displayNameRe.FindStringSubmatch(string(htmlBytes))
 	episodeNumberMatches := episodesRe.FindStringSubmatch(string(htmlBytes))
@@ -95,12 +95,16 @@ func (a *Anime3rb) GetAnimeResult(title string) *types.AniResult {
 		DisplayName: displayName,
 		Episodes:    epCoutnInt,
 	}
-	log.Printf("found anime info: title: %s \\\\ display name: %s \\\\ episodes: %v\n", r.Title, r.DisplayName, r.Episodes)
+	log.Printf(
+		"found anime info: title: %s \\\\ display name: %s \\\\ episodes: %v\n",
+		r.Title,
+		r.DisplayName,
+		r.Episodes,
+	)
 	return r
 }
 
 func (a *Anime3rb) Search(key string) []types.AniResult {
-	log.Println("searching...")
 	return a.searchPages(key, []types.AniResult{}, 1)
 }
 
@@ -176,7 +180,7 @@ func (a *Anime3rb) GetEpisodes(e types.AniResult) []types.AniEpisode {
 	return episodes
 }
 
-func getVideoUrl(html string, res ...string) (string, string) {
+func getVideoUrl(html string, res ...string) string {
 	re := regexp.MustCompile(`var\s+videos\s+=\s+\[((.|\n)*)\},\n+\s+\]`)
 	// Find the match
 	match := re.FindStringSubmatch(html)
@@ -195,16 +199,16 @@ func getVideoUrl(html string, res ...string) (string, string) {
 	err := json.Unmarshal([]byte(stringifyArray), &videos)
 	if err != nil {
 		fmt.Println("error while parsing videos " + err.Error())
-		return "", ""
+		return ""
 	}
 	for _, v := range videos {
 		for _, r := range res {
 			if v.Res == r {
-				return v.Src, v.Res
+				return v.Src
 			}
 		}
 	}
-	return videos[0].Src, videos[0].Res
+	return videos[0].Src
 }
 
 func getLazyEpisodeGetterFunc(anime *types.AniResult, url string) func() string {
@@ -235,8 +239,7 @@ func getLazyEpisodeGetterFunc(anime *types.AniResult, url string) func() string 
 			res, _ := http.Get(unescapedURL)
 			b, _ := io.ReadAll(res.Body)
 			defer res.Body.Close()
-			vidUrl, finalRes := getVideoUrl(string(b), "720")
-			anime.SelectedQuality = finalRes
+			vidUrl := getVideoUrl(string(b), "720")
 			return vidUrl
 		} else {
 			fmt.Println("No URL found")

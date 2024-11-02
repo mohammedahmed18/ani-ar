@@ -2,6 +2,7 @@ package gui
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -15,8 +16,8 @@ import (
 
 type AniModel struct {
 	textInput                textinput.Model
-	choicesModelAnimeList    ChoicesModel
-	choicesModelAnimeEpisode ChoicesModel
+	choicesModelAnimeList    *ChoicesModel
+	choicesModelAnimeEpisode *ChoicesModel
 	err                      error
 	// stage 0 is search anime ,
 	// stage 1 is selecting the anime from the list
@@ -32,7 +33,7 @@ func InitialModel() tea.Model {
 	ti.Focus()
 	ti.Width = 50
 
-	return AniModel{
+	return &AniModel{
 		textInput:                ti,
 		err:                      nil,
 		choicesModelAnimeList:    initialChoicesModelForAnimeTitles(),
@@ -82,7 +83,7 @@ func (m AniModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return b
 				}, searchKey)
 				m.info = ""
-				m.choicesModelAnimeList = choicesModel.(ChoicesModel)
+				m.choicesModelAnimeList = choicesModel.(*ChoicesModel)
 				return m, c
 			}
 			if m.stage == 1 {
@@ -102,7 +103,7 @@ func (m AniModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return b
 				}, anime.DisplayName+" episodes")
 
-				m.choicesModelAnimeEpisode = newEpisodeModal.(ChoicesModel)
+				m.choicesModelAnimeEpisode = newEpisodeModal.(*ChoicesModel)
 
 				return m, c
 			}
@@ -113,8 +114,17 @@ func (m AniModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				epUrl := ep.GetPlayerUrl()
 
-				title := fmt.Sprintf("%s - episode %v - %s", ep.Anime.DisplayName, ep.Number, ep.Anime.SelectedQuality)
-				err := player.RunVideo(epUrl, title)
+				title := fmt.Sprintf("%s - episode %v", ep.Anime.DisplayName, ep.Number)
+				_, err := player.RunVideo(epUrl, title)
+				m.choicesModelAnimeEpisode.loading = true
+				m.choicesModelAnimeEpisode.Update(msg)
+
+				go func() {
+					time.Sleep(time.Second * 1)
+					m.choicesModelAnimeEpisode.loading = false
+					m.choicesModelAnimeEpisode.Update(msg)
+				}()
+
 				if err != nil {
 					fmt.Printf("error playing the episode %s", err)
 				}
@@ -126,9 +136,9 @@ func (m AniModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case spinner.TickMsg:
 		// send the tick message to the two choice lists
 		m1, c1 := m.choicesModelAnimeList.Update(msg)
-		m.choicesModelAnimeList = m1.(ChoicesModel)
+		m.choicesModelAnimeList = m1.(*ChoicesModel)
 		m2, c2 := m.choicesModelAnimeEpisode.Update(msg)
-		m.choicesModelAnimeEpisode = m2.(ChoicesModel)
+		m.choicesModelAnimeEpisode = m2.(*ChoicesModel)
 		return m, tea.Batch(c1, c2)
 	case error:
 		m.err = msg
@@ -143,13 +153,13 @@ func (m AniModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// only recieve updates for choices modal for anime titles when stage is 1 (selecting the anime from the list)
 	if m.stage == 1 {
 		newChoicesModel, _ := m.choicesModelAnimeList.Update(msg)
-		m.choicesModelAnimeList = newChoicesModel.(ChoicesModel)
+		m.choicesModelAnimeList = newChoicesModel.(*ChoicesModel)
 	}
 
 	// only recieve updates for choices modal for anime episodes when stage is 2 (selecting an episode)
 	if m.stage == 2 {
 		newChoicesModel, _ := m.choicesModelAnimeEpisode.Update(msg)
-		m.choicesModelAnimeEpisode = newChoicesModel.(ChoicesModel)
+		m.choicesModelAnimeEpisode = newChoicesModel.(*ChoicesModel)
 	}
 
 	return m, cmd
@@ -170,9 +180,8 @@ func renderANewLine(msg string, highlight bool) string {
 
 func (m AniModel) View() string {
 	msg := ""
-
-	msg += m.info
-	msg += "\n"
+	// msg += m.info
+	// msg += "\n"
 
 	if m.stage == 0 {
 		msg += renderANewLine("Search anime ", true)

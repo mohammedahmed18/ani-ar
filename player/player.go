@@ -2,13 +2,11 @@ package player
 
 import (
 	"errors"
-	"log"
 	"os/exec"
 )
 
 type Player struct {
-	bin string
-
+	bin     string
 	execute func(url, title string) *exec.Cmd
 }
 
@@ -36,20 +34,20 @@ var players []Player = []Player{
 	},
 }
 
-func RunVideo(url, title string) error {
+func RunVideo(url, title string) (*exec.Cmd, error) {
 	for _, player := range players {
 		exist := commandExists(player.bin)
 		if exist {
 			cmd := player.execute(url, title)
 			err := cmd.Start()
 			if err != nil {
-				return err
+				return nil, err
 			}
-			log.Printf("video played with PID %d\n", cmd.Process.Pid)
-			return nil
+			//		log.Printf("video played with PID %d\n", cmd.Process.Pid)
+			return cmd, nil
 		}
 	}
-	return errors.New("you don't any players to play the episode try installing vlc or mpv")
+	return nil, errors.New("you don't any players to play the episode try installing vlc or mpv")
 }
 
 func commandExists(cmd string) bool {

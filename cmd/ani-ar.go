@@ -60,10 +60,11 @@ func main() {
 					log.Println("getting the episode video...")
 					videoUrl := ep.GetPlayerUrl()
 					log.Println("found it")
-					return player.RunVideo(
+					_, err := player.RunVideo(
 						videoUrl,
 						fmt.Sprintf("%s-episode-%v", title, animeEpisode),
 					)
+					return err
 				},
 			},
 			{

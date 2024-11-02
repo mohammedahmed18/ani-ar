@@ -1,10 +1,9 @@
 package types
 
 type AniResult struct {
-	Title           string
-	DisplayName     string
-	Episodes        int
-	SelectedQuality string
+	Title       string
+	DisplayName string
+	Episodes    int
 }
 
 type AniEpisode struct {

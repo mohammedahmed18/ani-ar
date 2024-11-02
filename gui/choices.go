@@ -47,10 +47,10 @@ func getFilterTextInput() textinput.Model {
 	return ti
 }
 
-func initialChoicesModelForAnimeTitles() ChoicesModel {
+func initialChoicesModelForAnimeTitles() *ChoicesModel {
 	vp := viewport.New(120, vpHight)
 	vp.SetContent(`loading...`)
-	return ChoicesModel{
+	return &ChoicesModel{
 		spinner:   getSpinnerForChoices(),
 		textInput: getFilterTextInput(),
 		viewport:  vp,
@@ -65,9 +65,9 @@ func initialChoicesModelForAnimeTitles() ChoicesModel {
 	}
 }
 
-func initialChoicesModelForAnimeEpisode() ChoicesModel {
+func initialChoicesModelForAnimeEpisode() *ChoicesModel {
 	vp := viewport.New(30, vpHight)
-	return ChoicesModel{
+	return &ChoicesModel{
 		spinner:   getSpinnerForChoices(),
 		textInput: getFilterTextInput(),
 		viewport:  vp,
@@ -78,11 +78,11 @@ func initialChoicesModelForAnimeEpisode() ChoicesModel {
 	}
 }
 
-func (m ChoicesModel) getSelectedChoice() interface{} {
+func (m *ChoicesModel) getSelectedChoice() interface{} {
 	return m.getFilteredChoices(m.choices)[m.cursor]
 }
 
-func (m ChoicesModel) getFilteredChoices(choices []interface{}) []interface{} {
+func (m *ChoicesModel) getFilteredChoices(choices []interface{}) []interface{} {
 	var filteredChoices []interface{}
 	for _, r := range choices {
 		formatted := m.choiceFormatFunc(r)
@@ -119,7 +119,7 @@ func (m ChoicesModel) getViewportContentFromChoices(choices []interface{}, curso
 	return content
 }
 
-func (m ChoicesModel) fetchChoices(
+func (m *ChoicesModel) fetchChoices(
 	searchfunc func() []interface{},
 	key string,
 ) (tea.Model, tea.Cmd) {
@@ -130,7 +130,7 @@ func (m ChoicesModel) fetchChoices(
 
 	// Return the model to show the spinner
 	newModel, _ := m.Update(newChoicesLoadingEvent())
-	m = newModel.(ChoicesModel)
+	m = newModel.(*ChoicesModel)
 
 	// Fetch data in a separate command
 	fetchDataCmd := func() tea.Msg {
@@ -148,11 +148,11 @@ func (m ChoicesModel) fetchChoices(
 	)
 }
 
-func (m ChoicesModel) Init() tea.Cmd {
+func (m *ChoicesModel) Init() tea.Cmd {
 	return tea.Batch(m.spinner.Tick, m.viewport.Init())
 }
 
-func (m ChoicesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *ChoicesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var (
 		cmd   tea.Cmd
 		vpCmd tea.Cmd
@@ -230,12 +230,14 @@ func (m ChoicesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmd, vpCmd)
 }
 
-func (m ChoicesModel) View() string {
+func (m *ChoicesModel) View() string {
 	msg := ""
 
 	if m.loading {
 		// Show spinner while loading
 		msg += m.spinner.View() + " Loading...\n"
+	} else {
+		msg += "\n"
 	}
 
 	if m.resultsShown {
