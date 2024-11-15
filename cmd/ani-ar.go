@@ -6,10 +6,12 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/urfave/cli/v2"
 
+	"github.com/ani/ani-ar/api"
 	"github.com/ani/ani-ar/download"
 	"github.com/ani/ani-ar/fetcher"
 	"github.com/ani/ani-ar/gui"
@@ -21,6 +23,21 @@ func main() {
 		Name:  "ani-ar",
 		Usage: "watch anime from terminal with arabic sub",
 		Commands: []*cli.Command{
+			{
+				Name:  "serve",
+				Flags: []cli.Flag{},
+				Action: func(ctx *cli.Context) error {
+					_, err := api.Serve(&api.ServerConfig{
+						HttpAddr:                         "127.0.0.1:8000",
+						ShowStartBanner:                  true,
+						TimeToWaitBeforeGracefulShutdown: time.Second,
+					})
+					if err != nil {
+						return err
+					}
+					return nil
+				},
+			},
 			{
 				Name: "search",
 				Flags: []cli.Flag{
