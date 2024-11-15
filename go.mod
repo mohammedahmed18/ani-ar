@@ -10,6 +10,7 @@ require (
 	github.com/fatih/color v1.18.0
 	github.com/goccy/go-json v0.10.3
 	github.com/gofiber/fiber/v2 v2.52.5
+	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/urfave/cli/v2 v2.27.5
 )
 

@@ -56,7 +56,7 @@ func main() {
 					}
 					// display results
 					for _, r := range results {
-						fmt.Printf("%s (%v episode(s))\n", r.Title, r.Episodes)
+						fmt.Printf("%s (%v episode(s))\n", r.Id, r.Episodes)
 					}
 					return nil
 				},

@@ -46,7 +46,7 @@ func (a Anime4up) Search(q string) []types.AniResult {
 			title = lastPart
 		}
 		results = append(results, types.AniResult{
-			Title:       title,
+			Id:          title,
 			DisplayName: displayName,
 			Episodes:    getEpisodesCountForAnime(link),
 		})
@@ -63,7 +63,7 @@ func getEpisodesCountForAnime(link string) int {
 
 func (a Anime4up) GetEpisodes(r types.AniResult) []types.AniEpisode {
 	var episodes []types.AniEpisode
-	link := fmt.Sprintf("%s/anime/%s", anime4upBaseUrl, r.Title)
+	link := fmt.Sprintf("%s/anime/%s", anime4upBaseUrl, r.Id)
 
 	res, _ := http.Get(link)
 	defer res.Body.Close()

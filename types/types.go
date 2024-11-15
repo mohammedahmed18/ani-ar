@@ -1,16 +1,17 @@
 package types
 
 type AniResult struct {
-	Title       string
-	DisplayName string
-	Episodes    int
+	Id           string `json:"id"`
+	DisplayName  string `json:"displayName"`
+	Episodes     int    `json:"episodes"`
+	DisplayCover string `json:"displayCover"`
 }
 
 type AniEpisode struct {
-	Anime        AniResult
-	Number       int
-	Url          string
-	GetPlayerUrl func() string
+	Anime        AniResult     `json:"anime"`
+	Number       int           `json:"number"`
+	Url          string        `json:"url"`
+	GetPlayerUrl func() string `json:"-"`
 }
 
 type AnimeApi interface {

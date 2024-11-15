@@ -10,16 +10,21 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
-
 	"github.com/ani/ani-ar/types"
+	cache "github.com/patrickmn/go-cache"
 )
 
-type Anime3rb struct{}
+type Anime3rb struct {
+	C *cache.Cache
+}
 
 func getAnime3rbFetcher() Fetcher {
-	return &Anime3rb{}
+	return &Anime3rb{
+		C: cache.New(5*time.Minute, 10*time.Minute),
+	}
 }
 
 type Ani3rbVideo struct {
@@ -55,10 +60,17 @@ func (a *Anime3rb) getToken() string {
 }
 
 func (a *Anime3rb) GetAnimeResult(title string) *types.AniResult {
+	cacheKey := "anime:" + title
+	if cachedAnime, found := a.C.Get(cacheKey); found {
+		return cachedAnime.(*types.AniResult)
+	}
+
 	displayNameRe := regexp.MustCompile(
 		`<h1\s+class="text-2xl font-bold uppercase inline">(.*)<\/h1>`,
 	)
 	episodesRe := regexp.MustCompile(`<p class="(.*)">الحلقات<\/p>\n+\s+<p(.*)<\/p>`)
+	animeCoverRe := regexp.MustCompile(`<meta\s+property="og:image"\s+content="([^"]+)"`)
+
 	animePageUrl := fmt.Sprintf("%s/titles/%s", baseUrl, title)
 	res, err := http.Get(animePageUrl)
 	if res.StatusCode != 200 || err != nil {
@@ -74,7 +86,12 @@ func (a *Anime3rb) GetAnimeResult(title string) *types.AniResult {
 	log.Println("parsing the html document to extract info...")
 	displayNameMatches := displayNameRe.FindStringSubmatch(string(htmlBytes))
 	episodeNumberMatches := episodesRe.FindStringSubmatch(string(htmlBytes))
-
+	coverMatches := animeCoverRe.FindStringSubmatch(string(htmlBytes))
+	println(fmt.Printf("matches: %v\n", coverMatches))
+	cover := ""
+	if len(coverMatches) > 1 {
+		cover = coverMatches[1]
+	}
 	displayNameDoc, err := goquery.NewDocumentFromReader(strings.NewReader(displayNameMatches[0]))
 	if err != nil {
 		return nil
@@ -91,21 +108,33 @@ func (a *Anime3rb) GetAnimeResult(title string) *types.AniResult {
 	epCoutnInt, _ := strconv.Atoi(episodesCount)
 
 	r := &types.AniResult{
-		Title:       title,
-		DisplayName: displayName,
-		Episodes:    epCoutnInt,
+		Id:           title,
+		DisplayName:  displayName,
+		Episodes:     epCoutnInt,
+		DisplayCover: cover,
 	}
 	log.Printf(
 		"found anime info: title: %s \\\\ display name: %s \\\\ episodes: %v\n",
-		r.Title,
+		r.Id,
 		r.DisplayName,
 		r.Episodes,
 	)
+	cachedItemsCount := a.C.ItemCount()
+	if cachedItemsCount > 100 {
+		a.C.Flush()
+	}
+	a.C.Set(cacheKey, r, cache.NoExpiration)
 	return r
 }
 
 func (a *Anime3rb) Search(key string) []types.AniResult {
-	return a.searchPages(key, []types.AniResult{}, 1)
+	cacheKey := "search:" + key
+	if results, found := a.C.Get(cacheKey); found {
+		return results.([]types.AniResult)
+	}
+	searchResults := a.searchPages(key, []types.AniResult{}, 1)
+	a.C.Set(cacheKey, searchResults, time.Hour)
+	return searchResults
 }
 
 func (a *Anime3rb) searchPages(
@@ -133,7 +162,7 @@ func (a *Anime3rb) searchPages(
 	queryResults.Each(func(i int, result *goquery.Selection) {
 		// For each item found, get the title
 		displayName := result.Find("h4").Text()
-
+		animeImage, _ := result.Find("img").First().Attr("src")
 		animeUrl, _ := result.Attr("href")
 		parts := strings.Split(animeUrl, "/")
 		title := parts[len(parts)-1]
@@ -153,9 +182,10 @@ func (a *Anime3rb) searchPages(
 			}
 		})
 		results = append(results, types.AniResult{
-			Title:       title,
-			DisplayName: displayName,
-			Episodes:    episodes,
+			Id:           title,
+			DisplayName:  displayName,
+			Episodes:     episodes,
+			DisplayCover: animeImage,
 		})
 	})
 
@@ -169,7 +199,7 @@ func (a *Anime3rb) GetEpisodes(e types.AniResult) []types.AniEpisode {
 	var episodes []types.AniEpisode
 	for i := 0; i < e.Episodes; i++ {
 		episodeNum := i + 1
-		epUrl := fmt.Sprintf("%s/episode/%s/%d", baseUrl, e.Title, episodeNum)
+		epUrl := fmt.Sprintf("%s/episode/%s/%d", baseUrl, e.Id, episodeNum)
 		episodes = append(episodes, types.AniEpisode{
 			Number:       episodeNum,
 			GetPlayerUrl: getLazyEpisodeGetterFunc(&e, epUrl),
