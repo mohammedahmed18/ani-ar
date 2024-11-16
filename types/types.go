@@ -6,12 +6,16 @@ type AniResult struct {
 	Episodes     int    `json:"episodes"`
 	DisplayCover string `json:"displayCover"`
 }
-
+type AniVideo struct {
+	Src string `json:"src"`
+	Res string `json:"res"`
+}
 type AniEpisode struct {
-	Anime        AniResult     `json:"anime"`
-	Number       int           `json:"number"`
-	Url          string        `json:"url"`
-	GetPlayerUrl func() string `json:"-"`
+	Anime                 AniResult         `json:"anime"`
+	Number                int               `json:"number"`
+	Url                   string            `json:"url"`
+	GetPlayerUrl          func() string     `json:"-"`
+	GetPlayersWithQuality func() []AniVideo `json:"-"`
 }
 
 type AnimeApi interface {

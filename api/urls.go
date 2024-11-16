@@ -9,5 +9,5 @@ const (
 	getResultByIdUrl        = aniResultsBaseUrl + "/info/:animeId"
 
 	getEpisodesBaseUrl      = aniEpisodesBaseUrl + "/:animeId/all"
-	getSingleEpisodeBaseUrl = aniEpisodesBaseUrl + "/info/:episodeId"
+	getSingleEpisodeBaseUrl = aniEpisodesBaseUrl + "/:animeId/:episodeNum"
 )
