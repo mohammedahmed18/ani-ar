@@ -191,8 +191,8 @@ func (a *Anime3rb) GetEpisodes(e types.AniResult) []types.AniEpisode {
 		epUrl := fmt.Sprintf("%s/episode/%s/%d", baseUrl, e.Id, episodeNum)
 		episodes = append(episodes, types.AniEpisode{
 			Number:                episodeNum,
-			GetPlayerUrl:          getLazyEpisodeGetterFunc(epUrl),
-			GetPlayersWithQuality: getMediasForEpisode(epUrl),
+			GetPlayerUrl:          a.getLazyEpisodeGetterFunc(epUrl),
+			GetPlayersWithQuality: a.getMediasForEpisode(epUrl),
 			Url:                   epUrl,
 			Anime:                 e,
 		})
@@ -225,8 +225,13 @@ func getVideosUrl(html string) []types.AniVideo {
 
 }
 
-func getMediasForEpisode(url string) func() []types.AniVideo {
+func (a *Anime3rb) getMediasForEpisode(url string) func() []types.AniVideo {
 	return func() []types.AniVideo {
+		cacheKey := "episode.medias." + url
+		medias, found := a.C.Get(cacheKey)
+		if found {
+			return *medias.(*[]types.AniVideo)
+		}
 		res, err := http.Get(url)
 		if err != nil {
 			fmt.Println(err.Error())
@@ -252,7 +257,9 @@ func getMediasForEpisode(url string) func() []types.AniVideo {
 			res, _ := http.Get(unescapedURL)
 			b, _ := io.ReadAll(res.Body)
 			defer res.Body.Close()
-			return getVideosUrl(string(b))
+			fetchedMedias := getVideosUrl(string(b))
+			a.C.Set(cacheKey, &fetchedMedias, time.Hour*24*4) // 4 days
+			return fetchedMedias
 		} else {
 			fmt.Println("No URL found")
 			return nil
@@ -260,9 +267,9 @@ func getMediasForEpisode(url string) func() []types.AniVideo {
 	}
 }
 
-func getLazyEpisodeGetterFunc(url string) func() string {
+func (a *Anime3rb) getLazyEpisodeGetterFunc(url string) func() string {
 	return func() string {
-		medias := getMediasForEpisode(url)()
+		medias := a.getMediasForEpisode(url)()
 		res := []string{"720", "1080"}
 		for _, v := range medias {
 			for _, r := range res {
