@@ -4,9 +4,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
+
+	"github.com/patrickmn/go-cache"
 )
 
-type JikanApi struct{}
+const jikanBaseUrl = "https://api.jikan.moe/v4"
+
+type JikanApi struct {
+	C *cache.Cache
+}
 
 type JikanAnimeInfo struct {
 	MalID          int        `json:"mal_id"`
@@ -131,8 +138,12 @@ type Genre struct {
 	URL   string `json:"url"`
 }
 
-func (JikanApi) getBestMatchAnimeInfo(animeTitleOrId string) *JikanAnimeInfo {
-	res, err := http.Get(fmt.Sprintf("https://api.jikan.moe/v4/anime?q=%s", animeTitleOrId))
+func (j JikanApi) getBestMatchAnimeInfo(animeTitleOrId string) *JikanAnimeInfo {
+	cacheKey := "jikan.result." + animeTitleOrId
+	if v, found := j.C.Get(cacheKey); found {
+		return v.(*JikanAnimeInfo)
+	}
+	res, err := http.Get(fmt.Sprintf("%s/anime?q=%s", jikanBaseUrl, animeTitleOrId))
 	if err != nil {
 		println(err.Error())
 		return nil
@@ -144,11 +155,18 @@ func (JikanApi) getBestMatchAnimeInfo(animeTitleOrId string) *JikanAnimeInfo {
 	}
 	var response Response
 	json.NewDecoder(res.Body).Decode(&response)
-	return response.Data[0]
+	bestMatch := response.Data[0]
+	j.C.Set(cacheKey, bestMatch, time.Hour*24*6)
+	return bestMatch
 }
 
 func (j JikanApi) getEpisodesWithPagination(episodes []*JikanAnimeEpisode, animeMalId int, page int) []*JikanAnimeEpisode {
-	res, err := http.Get(fmt.Sprintf("https://api.jikan.moe/v4/anime/%v/episodes?page=%v", animeMalId, page))
+	cacheKey := "jikan.episodes." + fmt.Sprintf("%v", animeMalId)
+	if v, found := j.C.Get(cacheKey); found {
+		return v.([]*JikanAnimeEpisode)
+	}
+
+	res, err := http.Get(fmt.Sprintf("%s/anime/%v/episodes?page=%v", jikanBaseUrl, animeMalId, page))
 	if err != nil {
 		println(err.Error())
 		return []*JikanAnimeEpisode{}
@@ -166,6 +184,7 @@ func (j JikanApi) getEpisodesWithPagination(episodes []*JikanAnimeEpisode, anime
 	episodes = append(episodes, response.Data...)
 
 	if page == response.Pagination.LastVisiblePage {
+		j.C.Set(cacheKey, episodes, time.Hour*24*1)
 		return episodes
 	}
 	return j.getEpisodesWithPagination(episodes, animeMalId, page+1)
@@ -174,4 +193,26 @@ func (j JikanApi) getEpisodesWithPagination(episodes []*JikanAnimeEpisode, anime
 
 func (j JikanApi) getEpisodes(animeMalId int) []*JikanAnimeEpisode {
 	return j.getEpisodesWithPagination([]*JikanAnimeEpisode{}, animeMalId, 1)
+}
+
+func (j JikanApi) getSingleEpisode(animeMalId, episodeNum int) *JikanAnimeEpisode {
+	cacheKey := "jikan.episodes." + fmt.Sprintf("%v", animeMalId)
+	if v, found := j.C.Get(cacheKey); found {
+		allCachedEpisodes := v.([]*JikanAnimeEpisode)
+		return allCachedEpisodes[episodeNum-1]
+	}
+
+	res, err := http.Get(fmt.Sprintf("%s/anime/%d/episodes/%d", jikanBaseUrl, animeMalId, episodeNum))
+	if err != nil {
+		println(err.Error())
+		return nil
+	}
+
+	defer res.Body.Close()
+	type Response struct {
+		Data *JikanAnimeEpisode `json:"data"`
+	}
+	var response Response
+	json.NewDecoder(res.Body).Decode(&response)
+	return response.Data
 }

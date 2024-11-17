@@ -3,15 +3,19 @@ package api
 import (
 	"errors"
 	"strconv"
+	"time"
 
 	"github.com/ani/ani-ar/fetcher"
 	"github.com/ani/ani-ar/types"
 	"github.com/gofiber/fiber/v2"
+	"github.com/patrickmn/go-cache"
 )
 
 func InitiateRoutes(app *fiber.App) {
 	fetcher := fetcher.GetDefaultFetcher()
-	var jikan JikanApi
+	var jikan *JikanApi = &JikanApi{
+		C: cache.New(time.Minute*5, time.Minute*10),
+	}
 
 	app.Get(searchAniResultsBaseUrl, func(c *fiber.Ctx) error {
 		search := c.Query("q")
@@ -44,6 +48,7 @@ func InitiateRoutes(app *fiber.App) {
 
 		}
 
+		// if no match we can return the fetcher episodes instead
 		fetcherEpisodes := fetcher.GetEpisodes(*anime)
 		return c.JSON(fetcherEpisodes)
 	})
@@ -51,15 +56,20 @@ func InitiateRoutes(app *fiber.App) {
 		animeIdOrTitle := c.Params("animeId")
 		episodeNumParam := c.Params("episodeNum")
 
-		enhanced, err := getAnimeEnhancedResults(animeIdOrTitle, fetcher)
-		if err != nil {
-			return err
+		fetcherAnime := fetcher.GetAnimeResult(animeIdOrTitle)
+		if fetcherAnime == nil {
+			return c.Send([]byte("Anime not found"))
 		}
-		fetcherEpisodes := fetcher.GetEpisodes(*enhanced.Data)
+
 		episodeNum, err := strconv.Atoi(episodeNumParam)
 		if err != nil {
 			return c.Status(400).JSON(map[string]string{"message": "invalid episode number"})
 		}
+
+		bestMatch := jikan.getBestMatchAnimeInfo(animeIdOrTitle)
+		jikanEpisode := jikan.getSingleEpisode(bestMatch.MalID, episodeNum)
+		fetcherEpisodes := fetcher.GetEpisodes(*fetcherAnime)
+
 		fetcherEpisode := fetcherEpisodes[episodeNum-1]
 		medias := fetcherEpisode.GetPlayersWithQuality()
 
@@ -68,11 +78,13 @@ func InitiateRoutes(app *fiber.App) {
 			// TODO: add more episode info
 		}
 		type EnhancedEpisodeType struct {
-			Anime   *EnhancedAnimeResult `json:"anime"`
-			Episode *EpisodeType         `json:"episode"`
+			MalAnime   *JikanAnimeInfo    `json:"malAnime"`
+			MalEpisode *JikanAnimeEpisode `json:"malEpisode"`
+			Episode    *EpisodeType       `json:"episode"`
 		}
 		return c.JSON(&EnhancedEpisodeType{
-			Anime: enhanced,
+			MalAnime:   bestMatch,
+			MalEpisode: jikanEpisode,
 			Episode: &EpisodeType{
 				ArMedias: medias,
 			},
@@ -90,7 +102,7 @@ func getAnimeEnhancedResults(animeIdOrTitle string, fetcher fetcher.Fetcher) (*E
 	var jikan JikanApi
 	anime := fetcher.GetAnimeResult(animeIdOrTitle)
 	if anime == nil {
-		return nil, errors.New("Anime not found")
+		return nil, errors.New("anime not found")
 	}
 	details := jikan.getBestMatchAnimeInfo(animeIdOrTitle)
 	enhancedResult := &EnhancedAnimeResult{Data: anime}
