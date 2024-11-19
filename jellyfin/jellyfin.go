@@ -20,12 +20,17 @@ import (
 	"github.com/kirsle/configdir"
 )
 
-// TODO: add these as envirenment variables
-const remoteGistId = "08527c7de57cd8d5c027f22ae929f750"
-const gistFileName = "ani-ar-for-jellyfin-list.json"
-const animeShowsPath = "/home/mohammed/Downloads/anime"
+var remoteGistId string
+var gistFileName string
+var animeShowsPath string
 
-// const animeMoviesPath = "/home/mohammed/Downloads/anime-movies"
+func init() {
+	remoteGistId = os.Getenv("ANI_AR_REMOTE_GIST_ID")
+	gistFileName = os.Getenv("ANI_AR_REMOTE_GIST_FILE_NAME")
+	animeShowsPath = os.Getenv("ANI_AR_ANIME_SHOWS_FOLDER_PATH")
+}
+
+// var animeMoviesPath = os.Getenv("ANI_AR_ANIME_MOVIES_FOLDER_PATH")
 
 var aniArConfigFolderPath = filepath.Join(configdir.LocalConfig(), "ani-ar")
 var revisionFilePath = filepath.Join(aniArConfigFolderPath, "rev.cfg")
@@ -278,6 +283,13 @@ func writeNewRevLocally(newRev *JellyfinRevision) error {
 func PerformRevision() error {
 	currentRev := GetAndParseLocalRevision()
 	remoteRev := GetRemoteRevision()
+
+	if currentRev == nil {
+		currentRev = &JellyfinRevision{}
+	}
+	if remoteRev == nil {
+		currentRev = &JellyfinRevision{}
+	}
 	diffs := DiffRevisions(currentRev, remoteRev)
 	updatedRev := ProcessDiff(diffs, currentRev, remoteRev.RevisionId)
 	if len(diffs) == 0 {
@@ -350,6 +362,9 @@ func AddJellyfinTvFolder(revItem *JellyfinRevisionItem) error {
 }
 
 func InfiniteLoop() error {
+	log.Println("ANI_AR_REMOTE_GIST_ID: " + remoteGistId)
+	log.Println("ANI_AR_REMOTE_GIST_FILE_NAME: " + gistFileName)
+	log.Println("ANI_AR_ANIME_SHOWS_FOLDER_PATH: " + animeShowsPath)
 	for {
 		err := PerformRevision()
 		if err != nil {
