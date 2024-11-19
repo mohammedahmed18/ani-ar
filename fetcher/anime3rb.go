@@ -82,7 +82,7 @@ func (a *Anime3rb) GetAnimeResult(title string) *types.AniResult {
 	displayNameMatches := displayNameRe.FindStringSubmatch(string(htmlBytes))
 	episodeNumberMatches := episodesRe.FindStringSubmatch(string(htmlBytes))
 	coverMatches := animeCoverRe.FindStringSubmatch(string(htmlBytes))
-	println(fmt.Printf("matches: %v\n", coverMatches))
+
 	cover := ""
 	if len(coverMatches) > 1 {
 		cover = coverMatches[1]

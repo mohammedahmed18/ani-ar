@@ -47,13 +47,14 @@ func Serve(cfg *ServerConfig) (*http.Server, error) {
 	}
 
 	app := InitApp()
+	app.Use(cors.New())
 	InitiateRoutes(app)
 
-	app.Use(cors.New(cors.Config{
-		AllowOrigins: strings.Join(cfg.AllowedOrigins, ", "),
-		AllowHeaders: "Origin, Content-Type, Accept",
-		AllowMethods: strings.Join([]string{http.MethodGet, http.MethodHead, http.MethodPut, http.MethodPatch, http.MethodPost, http.MethodDelete}, ","),
-	}))
+	// app.Use(cors.New(cors.Config{
+	// 	AllowOrigins: "*",
+	// 	AllowHeaders: "Origin, Content-Type, Accept",
+	// 	AllowMethods: strings.Join([]string{http.MethodGet, http.MethodHead, http.MethodPut, http.MethodPatch, http.MethodPost, http.MethodDelete}, ","),
+	// }))
 
 	// start http server
 	// ---

@@ -10,4 +10,6 @@ const (
 
 	getEpisodesBaseUrl      = aniEpisodesBaseUrl + "/:animeId/all"
 	getSingleEpisodeBaseUrl = aniEpisodesBaseUrl + "/:animeId/:episodeNum"
+
+	AddJellyfinAnime = baseUrl + "/add/:animeId"
 )

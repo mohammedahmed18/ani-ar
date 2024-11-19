@@ -6,13 +6,25 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/patrickmn/go-cache"
+	cache "github.com/patrickmn/go-cache"
 )
 
 const jikanBaseUrl = "https://api.jikan.moe/v4"
 
 type JikanApi struct {
 	C *cache.Cache
+}
+
+var jikanApi *JikanApi
+
+func GetJikanApi() *JikanApi {
+	if jikanApi != nil {
+		return jikanApi
+	}
+	jikanApi = &JikanApi{
+		C: cache.New(5*time.Minute, 10*time.Minute),
+	}
+	return jikanApi
 }
 
 type JikanAnimeInfo struct {
@@ -138,7 +150,7 @@ type Genre struct {
 	URL   string `json:"url"`
 }
 
-func (j JikanApi) getBestMatchAnimeInfo(animeTitleOrId string) *JikanAnimeInfo {
+func (j *JikanApi) getBestMatchAnimeInfo(animeTitleOrId string) *JikanAnimeInfo {
 	cacheKey := "jikan.result." + animeTitleOrId
 	if v, found := j.C.Get(cacheKey); found {
 		return v.(*JikanAnimeInfo)
@@ -160,7 +172,7 @@ func (j JikanApi) getBestMatchAnimeInfo(animeTitleOrId string) *JikanAnimeInfo {
 	return bestMatch
 }
 
-func (j JikanApi) getEpisodesWithPagination(episodes []*JikanAnimeEpisode, animeMalId int, page int) []*JikanAnimeEpisode {
+func (j *JikanApi) getEpisodesWithPagination(episodes []*JikanAnimeEpisode, animeMalId int, page int) []*JikanAnimeEpisode {
 	cacheKey := "jikan.episodes." + fmt.Sprintf("%v", animeMalId)
 	if v, found := j.C.Get(cacheKey); found {
 		return v.([]*JikanAnimeEpisode)
@@ -191,11 +203,11 @@ func (j JikanApi) getEpisodesWithPagination(episodes []*JikanAnimeEpisode, anime
 
 }
 
-func (j JikanApi) getEpisodes(animeMalId int) []*JikanAnimeEpisode {
+func (j *JikanApi) getEpisodes(animeMalId int) []*JikanAnimeEpisode {
 	return j.getEpisodesWithPagination([]*JikanAnimeEpisode{}, animeMalId, 1)
 }
 
-func (j JikanApi) getSingleEpisode(animeMalId, episodeNum int) *JikanAnimeEpisode {
+func (j *JikanApi) getSingleEpisode(animeMalId, episodeNum int) *JikanAnimeEpisode {
 	cacheKey := "jikan.episodes." + fmt.Sprintf("%v", animeMalId)
 	if v, found := j.C.Get(cacheKey); found {
 		allCachedEpisodes := v.([]*JikanAnimeEpisode)

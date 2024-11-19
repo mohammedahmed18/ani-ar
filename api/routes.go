@@ -3,19 +3,15 @@ package api
 import (
 	"errors"
 	"strconv"
-	"time"
 
 	"github.com/ani/ani-ar/fetcher"
 	"github.com/ani/ani-ar/types"
 	"github.com/gofiber/fiber/v2"
-	"github.com/patrickmn/go-cache"
 )
 
 func InitiateRoutes(app *fiber.App) {
 	fetcher := fetcher.GetDefaultFetcher()
-	var jikan *JikanApi = &JikanApi{
-		C: cache.New(time.Minute*5, time.Minute*10),
-	}
+	jikan := GetJikanApi()
 
 	app.Get(searchAniResultsBaseUrl, func(c *fiber.Ctx) error {
 		search := c.Query("q")
@@ -25,7 +21,7 @@ func InitiateRoutes(app *fiber.App) {
 
 	app.Get(getResultByIdUrl, func(c *fiber.Ctx) error {
 		animeId := c.Params("animeId")
-		enhanced, err := getAnimeEnhancedResults(animeId, fetcher)
+		enhanced, err := GetAnimeEnhancedResults(animeId, fetcher)
 		if err != nil {
 			return err
 		}
@@ -94,12 +90,12 @@ func InitiateRoutes(app *fiber.App) {
 }
 
 type EnhancedAnimeResult struct {
-	Details *JikanAnimeInfo
-	Data    *types.AniResult
+	Details *JikanAnimeInfo  `json:"details"`
+	Data    *types.AniResult `json:"data"`
 }
 
-func getAnimeEnhancedResults(animeIdOrTitle string, fetcher fetcher.Fetcher) (*EnhancedAnimeResult, error) {
-	var jikan JikanApi
+func GetAnimeEnhancedResults(animeIdOrTitle string, fetcher fetcher.Fetcher) (*EnhancedAnimeResult, error) {
+	jikan := GetJikanApi()
 	anime := fetcher.GetAnimeResult(animeIdOrTitle)
 	if anime == nil {
 		return nil, errors.New("anime not found")

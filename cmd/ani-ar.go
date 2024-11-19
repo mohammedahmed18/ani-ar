@@ -15,6 +15,7 @@ import (
 	"github.com/ani/ani-ar/download"
 	"github.com/ani/ani-ar/fetcher"
 	"github.com/ani/ani-ar/gui"
+	"github.com/ani/ani-ar/jellyfin"
 	"github.com/ani/ani-ar/player"
 )
 
@@ -23,6 +24,13 @@ func main() {
 		Name:  "ani-ar",
 		Usage: "watch anime from terminal with arabic sub",
 		Commands: []*cli.Command{
+			{
+				Name:  "jelly",
+				Flags: []cli.Flag{},
+				Action: func(ctx *cli.Context) error {
+					return jellyfin.InfiniteLoop()
+				},
+			},
 			{
 				Name:  "serve",
 				Flags: []cli.Flag{},
