@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/ani/ani-ar/api"
 	"github.com/ani/ani-ar/fetcher"
@@ -19,6 +21,8 @@ import (
 	"github.com/goccy/go-json"
 	"github.com/kirsle/configdir"
 )
+
+var mu sync.Mutex
 
 var remoteGist string
 var animeShowsPath string
@@ -135,13 +139,14 @@ func GetRemoteRevision() *JellyfinRevision {
 
 func DiffRevisions(old, new *JellyfinRevision) []*JellyfinRevisionDiff {
 	log.Println("begin proccessing the diffs between the local and remote revisions...")
-	if old.RevisionId == new.RevisionId {
-		log.Println("same revision id, no diffs to check")
-		return []*JellyfinRevisionDiff{}
-	}
+	// TODO: should we use revision id or no??
+	// if old.RevisionId == new.RevisionId {
+	// 	log.Println("same revision id, no diffs to check")
+	// 	return []*JellyfinRevisionDiff{}
+	// }
 
 	var diffs []*JellyfinRevisionDiff
-	var checkedNewRevisions map[string]interface{} = make(map[string]interface{})
+	checkedNewRevisions := make(map[string]interface{})
 	for oldIdx, oldRevItem := range old.Items {
 		// search for the match
 		found := false
@@ -322,6 +327,7 @@ func PerformRevision() error {
 
 	diffs := DiffRevisions(currentRev, remoteRev)
 	if len(diffs) == 0 {
+		log.Println("No diffs to to perform, all good")
 		return nil
 	}
 
@@ -378,7 +384,7 @@ func RemoveJellyfinMedia(revItem *JellyfinRevisionItem) error {
 
 func AddJellyfinMedia(revItem *JellyfinRevisionItem) error {
 	fetcher := fetcher.GetDefaultFetcher()
-
+	log.Printf("Adding new media item, id: [%s]\n", revItem.ID)
 	animeResult, err := api.GetAnimeEnhancedResults(revItem.ID, fetcher)
 
 	log.Printf("adding a new media [%s] [%s]\n", animeResult.Details.TitleEnglish, animeResult.Details.Type)
@@ -436,14 +442,84 @@ func AddJellyfinMedia(revItem *JellyfinRevisionItem) error {
 
 }
 
+func RefreshLocalMediaItems() error {
+	mu.Lock()
+	defer mu.Unlock()
+
+	localRevision, err := GetAndParseLocalRevision()
+	if err != nil {
+		return err
+	}
+
+	var fakeDiffs []*JellyfinRevisionDiff
+	for _, localRevItem := range localRevision.Items {
+		b, err := json.Marshal(localRevItem)
+		if err != nil {
+			return err
+		}
+
+		fakeDiffs = append(fakeDiffs, &JellyfinRevisionDiff{
+			Mode: "ADD",
+			New:  string(b),
+		})
+	}
+
+	_, err = ProcessDiff(fakeDiffs, localRevision, localRevision.RevisionId)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func InfiniteLoop() error {
 	log.Println("ANI_AR_REMOTE_GIST: " + remoteGist)
 	log.Println("ANI_AR_ANIME_SHOWS_FOLDER_PATH: " + animeShowsPath)
 	log.Println("ANI_AR_ANIME_MOVIES_FOLDER_PATH: " + animeMoviesPath)
-	err := PerformRevision()
+	println(`
+	
+		 /$$$$$$            /$$                             
+		/$$__  $$          |__/                             
+		| $$  \ $$ /$$$$$$$  /$$         /$$$$$$   /$$$$$$  
+		| $$$$$$$$| $$__  $$| $$ /$$$$$$|____  $$ /$$__  $$ 
+		| $$__  $$| $$  \ $$| $$|______/ /$$$$$$$| $$  \__/ 
+		| $$  | $$| $$  | $$| $$        /$$__  $$| $$       
+		| $$  | $$| $$  | $$| $$       |  $$$$$$$| $$       
+		|__/  |__/|__/  |__/|__/        \_______/|__/       
+															
+	`)
+
+	err := RefreshLocalMediaItems()
 	if err != nil {
-		return err
+		log.Printf("Error refreshing media items: %v", err)
 	}
-	// time.Sleep(time.Minute * 5)
-	return nil
+
+	go func() {
+		ticker := time.NewTicker(time.Hour * 2)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				log.Println("Refreshing links for local media items")
+				err := RefreshLocalMediaItems()
+				if err != nil {
+					log.Printf("Error refreshing media items: %v", err)
+				}
+			}
+		}
+	}()
+
+	// Revision loop runs every 5 minutes
+	interval := time.Minute * 5
+	for {
+		mu.Lock()
+		err := PerformRevision()
+		mu.Unlock()
+		if err != nil {
+			log.Printf("Error during PerformRevision: %v", err)
+			time.Sleep(time.Minute)
+			continue
+		}
+
+		time.Sleep(interval)
+	}
 }

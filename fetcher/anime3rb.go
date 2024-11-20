@@ -270,11 +270,11 @@ func (a *Anime3rb) getMediasForEpisode(url string) func() []types.AniVideo {
 func (a *Anime3rb) getLazyEpisodeGetterFunc(url string) func() string {
 	return func() string {
 		medias := a.getMediasForEpisode(url)()
-		res := []string{"720", "1080"}
-		for _, v := range medias {
-			for _, r := range res {
-				if v.Res == r {
-					return v.Src
+		res := []string{"1080", "720", "480"}
+		for _, res := range res {
+			for _, media := range medias {
+				if media.Res == res {
+					return media.Src
 				}
 			}
 		}
