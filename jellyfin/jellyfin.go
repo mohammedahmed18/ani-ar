@@ -12,25 +12,23 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/ani/ani-ar/api"
 	"github.com/ani/ani-ar/fetcher"
+	"github.com/ani/ani-ar/types"
 	"github.com/goccy/go-json"
 	"github.com/kirsle/configdir"
 )
 
-var remoteGistId string
-var gistFileName string
+var remoteGist string
 var animeShowsPath string
+var animeMoviesPath string
 
 func init() {
-	remoteGistId = os.Getenv("ANI_AR_REMOTE_GIST_ID")
-	gistFileName = os.Getenv("ANI_AR_REMOTE_GIST_FILE_NAME")
+	remoteGist = os.Getenv("ANI_AR_REMOTE_GIST")
 	animeShowsPath = os.Getenv("ANI_AR_ANIME_SHOWS_FOLDER_PATH")
+	animeMoviesPath = os.Getenv("ANI_AR_ANIME_MOVIES_FOLDER_PATH")
 }
-
-// var animeMoviesPath = os.Getenv("ANI_AR_ANIME_MOVIES_FOLDER_PATH")
 
 var aniArConfigFolderPath = filepath.Join(configdir.LocalConfig(), "ani-ar")
 var revisionFilePath = filepath.Join(aniArConfigFolderPath, "rev.cfg")
@@ -68,47 +66,52 @@ type JellyfinRevisionDiff struct {
 	New string `json:"new"`
 }
 
-type ImportantGistRes struct {
-	Files map[string]struct {
-		FileName string `json:"fileName"`
-		Content  string `json:"content"`
-	} `json:"files"`
-}
-
-func GetAndParseLocalRevision() *JellyfinRevision {
+func GetAndParseLocalRevision() (*JellyfinRevision, error) {
 	if _, err := os.Stat(revisionFilePath); errors.Is(err, os.ErrNotExist) {
 		// config file doesn't exit
 		err = os.MkdirAll(aniArConfigFolderPath, os.ModePerm)
 		if err != nil {
-			log.Println("couldn't create ani-ar config folder, reason :" + err.Error())
-			return nil
+			return nil, errors.New("couldn't create ani-ar config folder, reason :" + err.Error())
 		}
-		_, err := os.Create(revisionFilePath)
+		err = os.WriteFile(revisionFilePath, []byte(""), 0755)
 		if err != nil {
-			log.Println("couldn't create inital revision file, reason :" + err.Error())
-			return nil
+			return nil, errors.New("couldn't create inital revision file, reason :" + err.Error())
 		}
 
-		log.Println("revision file is created successfully")
+		log.Println("initial revision file is created successfully")
+		return &JellyfinRevision{
+			RevisionId: "(((((0)))))",
+		}, nil
 	}
+
 	revFile, err := os.Open(revisionFilePath)
 	if err != nil {
-		log.Println("couldn't read local revision file, reason :" + err.Error())
-		return nil
+		return nil, errors.New("couldn't read local revision file, reason :" + err.Error())
 	}
+
 	defer revFile.Close()
 
-	byteValue, _ := io.ReadAll(revFile)
+	byteValue, err := io.ReadAll(revFile)
+	if err != nil {
+		return nil, errors.New("couldn't read local revision file, reason :" + err.Error())
+	}
 
 	var rev JellyfinRevision
-	json.Unmarshal([]byte(byteValue), &rev)
+	err = json.Unmarshal([]byte(byteValue), &rev)
+	if err != nil {
+		return nil, errors.New("couldn't parse the local revision file, reason :" + err.Error())
+	}
 
-	return &rev
+	if rev.RevisionId != "" {
+		log.Printf("parsed the local revision config with the id %s\n", rev.RevisionId)
+	}
+
+	return &rev, nil
 }
 
 func GetRemoteRevision() *JellyfinRevision {
-	gistApiUrl := fmt.Sprintf("https://api.github.com/gists/%s", remoteGistId)
-	response, err := http.Get(gistApiUrl)
+	gistRawContentUrl := fmt.Sprintf("https://gist.githubusercontent.com/%s/raw", remoteGist)
+	response, err := http.Get(gistRawContentUrl)
 	if err != nil {
 		log.Println("Error while requesting the remote revision file, reason: " + err.Error())
 		return nil
@@ -120,20 +123,18 @@ func GetRemoteRevision() *JellyfinRevision {
 		log.Println("Error while reading the remote revision file, reason: " + err.Error())
 		return nil
 	}
-	var ghRes *ImportantGistRes
-	err = json.Unmarshal(bytes, &ghRes)
-	if err != nil {
-		log.Println("Error while parsing the remote revision file, reason: " + err.Error())
-		return nil
-	}
-
 	var remoteRev *JellyfinRevision
-	json.Unmarshal([]byte(ghRes.Files[gistFileName].Content), &remoteRev)
+	json.Unmarshal(bytes, &remoteRev)
+
+	if remoteRev.RevisionId != "" {
+		log.Printf("fetched the remote revision config with the id %s\n", remoteRev.RevisionId)
+	}
 
 	return remoteRev
 }
 
 func DiffRevisions(old, new *JellyfinRevision) []*JellyfinRevisionDiff {
+	log.Println("begin proccessing the diffs between the local and remote revisions...")
 	if old.RevisionId == new.RevisionId {
 		log.Println("same revision id, no diffs to check")
 		return []*JellyfinRevisionDiff{}
@@ -175,23 +176,18 @@ func DiffRevisions(old, new *JellyfinRevision) []*JellyfinRevisionDiff {
 					changed = true
 				}
 				if changed {
-					err := RemoveJellyfinTvFolder(&oldRevItem)
-					err1 := AddJellyfinTvFolder(&newRevItem)
-					if err == nil && err1 == nil {
-						diffs = append(diffs, updateDiff)
-					}
+					log.Printf("[diif] revision item %s got changed\n", newRevItem.ID)
+					diffs = append(diffs, updateDiff)
 				}
 			}
 		}
 		if !found {
 			// old rev was not found in the new, delete it
-			err := RemoveJellyfinTvFolder(&oldRevItem)
-			if err == nil {
-				diffs = append(diffs, &JellyfinRevisionDiff{
-					Mode:   fmt.Sprintf("DEL:%v", oldIdx),
-					KeyNum: revKeyId,
-				})
-			}
+			log.Printf("[diif] revision item %s deleted\n", oldRevItem.ID)
+			diffs = append(diffs, &JellyfinRevisionDiff{
+				Mode:   fmt.Sprintf("DEL:%v", oldIdx),
+				KeyNum: revKeyId,
+			})
 
 		}
 	}
@@ -201,37 +197,61 @@ func DiffRevisions(old, new *JellyfinRevision) []*JellyfinRevisionDiff {
 		_, found := checkedNewRevisions[newRevItem.ID]
 		if !found {
 			// add item
-			err := AddJellyfinTvFolder(&newRevItem)
-			if err == nil {
-				encodedBytes, err := json.Marshal(newRevItem)
-				if err != nil {
-					log.Println("Error while encoding newly added rev item: " + err.Error())
-					return nil
-				}
-				diffs = append(diffs, &JellyfinRevisionDiff{
-					Mode: "ADD",
-					New:  string(encodedBytes),
-				})
+			encodedBytes, err := json.Marshal(newRevItem)
+			if err != nil {
+				log.Println("Error while encoding newly added rev item: " + err.Error())
+				return nil
 			}
+			log.Printf("[diif] revision item %s added\n", newRevItem.ID)
+			diffs = append(diffs, &JellyfinRevisionDiff{
+				Mode: "ADD",
+				New:  string(encodedBytes),
+			})
 
 		}
 	}
 	return diffs
 }
 
+func printDiffInfo(diffs []*JellyfinRevisionDiff) {
+	addDiffsCount := 0
+	updateDiffsCount := 0
+	delDiffsCount := 0
+	for _, diff := range diffs {
+		if strings.HasPrefix(diff.Mode, "DEL") {
+			delDiffsCount += 1
+		} else if strings.HasPrefix(diff.Mode, "UPDATE") {
+			updateDiffsCount += 1
+		} else if diff.Mode == "ADD" {
+			addDiffsCount += 1
+		}
+	}
+	log.Printf("[%d] addition diffs, [%d] update diffs, [%d] delete diffs", addDiffsCount, updateDiffsCount, delDiffsCount)
+}
+
 // process the diffs and create a new revision
-func ProcessDiff(diffs []*JellyfinRevisionDiff, old *JellyfinRevision, newRevId string) *JellyfinRevision {
+func ProcessDiff(diffs []*JellyfinRevisionDiff, old *JellyfinRevision, newRevId string) (*JellyfinRevision, error) {
+	log.Println("Start proccessing the diffs...")
+	printDiffInfo(diffs)
+
 	var newRev = *old
 	for _, diff := range diffs {
 		if strings.HasPrefix(diff.Mode, "DEL") {
 			modeParts := strings.Split(diff.Mode, ":")
 			idxStr := modeParts[1]
-			idx, _ := strconv.Atoi(idxStr)
-			newRev.Items = append(old.Items[:idx], old.Items[idx+1:]...)
+			oldRevItemIdx, _ := strconv.Atoi(idxStr)
+
+			err := RemoveJellyfinMedia(&old.Items[oldRevItemIdx])
+			if err != nil {
+				return nil, err
+			}
+
+			newRev.Items = append(old.Items[:oldRevItemIdx], old.Items[oldRevItemIdx+1:]...)
 		} else if strings.HasPrefix(diff.Mode, "UPDATE") {
 			modeParts := strings.Split(diff.Mode, ":")
 			idxStr := modeParts[1]
 			idx, _ := strconv.Atoi(idxStr)
+			RemoveJellyfinMedia(&old.Items[idx])
 			switch diff.KeyNum {
 			case revKeyType:
 				newRev.Items[idx].Type = diff.New
@@ -241,11 +261,19 @@ func ProcessDiff(diffs []*JellyfinRevisionDiff, old *JellyfinRevision, newRevId 
 				seasonNumber, _ := strconv.Atoi(diff.New)
 				newRev.Items[idx].Season = seasonNumber
 			}
+			err := AddJellyfinMedia(&newRev.Items[idx])
+			if err != nil {
+				return nil, err
+			}
 		} else if diff.Mode == "ADD" {
 			var newRevItem JellyfinRevisionItem
 			json.Unmarshal([]byte(diff.New), &newRevItem)
 			if newRevItem.Season == 0 {
 				newRevItem.Season = 1
+			}
+			err := AddJellyfinMedia(&newRevItem)
+			if err != nil {
+				return nil, err
 			}
 			newRev.Items = append(newRev.Items, newRevItem)
 		}
@@ -253,7 +281,7 @@ func ProcessDiff(diffs []*JellyfinRevisionDiff, old *JellyfinRevision, newRevId 
 
 	newRev.RevisionId = newRevId
 
-	return &newRev
+	return &newRev, nil
 }
 
 func writeNewRevLocally(newRev *JellyfinRevision) error {
@@ -281,37 +309,66 @@ func writeNewRevLocally(newRev *JellyfinRevision) error {
 }
 
 func PerformRevision() error {
-	currentRev := GetAndParseLocalRevision()
+	currentRev, err := GetAndParseLocalRevision()
+	if err != nil {
+		return err
+	}
+
 	remoteRev := GetRemoteRevision()
 
-	if currentRev == nil {
-		currentRev = &JellyfinRevision{}
-	}
 	if remoteRev == nil {
-		currentRev = &JellyfinRevision{}
+		return errors.New("remote revision config can't be found, make sure you have set `ANI_AR_REMOTE_GIST` environment variable correctly ")
 	}
+
 	diffs := DiffRevisions(currentRev, remoteRev)
-	updatedRev := ProcessDiff(diffs, currentRev, remoteRev.RevisionId)
 	if len(diffs) == 0 {
 		return nil
 	}
-	err := writeNewRevLocally(updatedRev)
+
+	updatedRev, err := ProcessDiff(diffs, currentRev, remoteRev.RevisionId)
 	if err != nil {
-		log.Println("error while writing the new rev config file, reason: " + err.Error())
-		return err
+		return errors.New("error while processing the diffs, reason: " + err.Error())
+	}
+
+	err = writeNewRevLocally(updatedRev)
+	if err != nil {
+		return errors.New("error while writing the new rev config file, reason: " + err.Error())
 	}
 	b, _ := json.Marshal(updatedRev)
 	println("revision done, content : " + string(b))
 	return nil
 }
 
-func RemoveJellyfinTvFolder(revItem *JellyfinRevisionItem) error {
+func getFormattedAnimeMovieName(r *api.EnhancedAnimeResult) string {
+	return fmt.Sprintf("%s (%v).strm", r.Details.TitleEnglish, r.Details.Aired.Prop.From.Year)
+}
+
+func downloadEpisode(aniEpisode *types.AniEpisode, filePath string, res string) error {
+	medias := aniEpisode.GetPlayersWithQuality()
+	for _, media := range medias {
+		if media.Res == res {
+			err := os.WriteFile(filePath, []byte(media.Src), 0755)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func RemoveJellyfinMedia(revItem *JellyfinRevisionItem) error {
 	fetcher := fetcher.GetDefaultFetcher()
 	animeResult, err := api.GetAnimeEnhancedResults(revItem.ID, fetcher)
 	if err != nil {
 		return err
 	}
-	animePath := filepath.Join(animeShowsPath, animeResult.Details.TitleEnglish)
+	animePath := ""
+	if animeResult.Details.Type == "TV" {
+		animePath = filepath.Join(animeShowsPath, animeResult.Details.TitleEnglish)
+	} else if animeResult.Details.Type == "Movie" {
+		animePath = filepath.Join(animeMoviesPath, getFormattedAnimeMovieName(animeResult))
+	}
+
 	err = os.RemoveAll(animePath)
 	if err != nil {
 		return err
@@ -319,10 +376,13 @@ func RemoveJellyfinTvFolder(revItem *JellyfinRevisionItem) error {
 	return nil
 }
 
-func AddJellyfinTvFolder(revItem *JellyfinRevisionItem) error {
+func AddJellyfinMedia(revItem *JellyfinRevisionItem) error {
 	fetcher := fetcher.GetDefaultFetcher()
 
 	animeResult, err := api.GetAnimeEnhancedResults(revItem.ID, fetcher)
+
+	log.Printf("adding a new media [%s] [%s]\n", animeResult.Details.TitleEnglish, animeResult.Details.Type)
+
 	if err != nil {
 		return err
 	}
@@ -330,46 +390,60 @@ func AddJellyfinTvFolder(revItem *JellyfinRevisionItem) error {
 	if animeResult.Details.Type != revItem.Type {
 		return fmt.Errorf("the anime %s is of type %s not %s, make sure you are specifing the correct anime", animeResult.Details.TitleEnglish, animeResult.Details.Type, revItem.Type)
 	}
+
+	isShow := revItem.Type == "TV"
+	isMovie := revItem.Type == "Movie"
+
+	animePath := ""
+
+	// season will only be used for shows
 	season := revItem.Season
 	if season == 0 {
 		season = 1
 	}
-	// animeResult.Details
-	animePath := filepath.Join(animeShowsPath, animeResult.Details.TitleEnglish, fmt.Sprintf("Season %v", season))
+
+	if isShow {
+		animePath = filepath.Join(animeShowsPath, animeResult.Details.TitleEnglish, fmt.Sprintf("Season %v", season))
+	} else if isMovie {
+		animePath = filepath.Join(animeMoviesPath)
+	}
+
+	log.Printf("target download folder: %s", animePath)
+
 	err = os.MkdirAll(animePath, 0755)
 	if err != nil {
 		return err
 	}
 
 	// adding episodes
+	fetcherEpisodes := fetcher.GetEpisodes(*animeResult.Data)
 	for episodeIdx := range animeResult.Data.Episodes {
-		fetcherEpisodes := fetcher.GetEpisodes(*animeResult.Data)
+		log.Printf("adding episode [%v] of [%s]\n", episodeIdx+1, animeResult.Details.TitleEnglish)
 
 		fetcherEpisode := fetcherEpisodes[episodeIdx]
-		medias := fetcherEpisode.GetPlayersWithQuality()
-		for _, media := range medias {
-			if media.Res == revItem.Res {
-				episodeFileName := fmt.Sprintf("%s S%vE%v.strm", animeResult.Details.TitleEnglish, season, episodeIdx+1)
-				err = os.WriteFile(filepath.Join(animePath, episodeFileName), []byte(media.Src), 0755)
-				if err != nil {
-					return err
-				}
-			}
+		episodePath := ""
+		if isShow {
+			episodeFileName := fmt.Sprintf("%s S%vE%v.strm", animeResult.Details.TitleEnglish, season, episodeIdx+1)
+			episodePath = filepath.Join(animePath, episodeFileName)
 		}
+		if isMovie {
+			episodePath = filepath.Join(animeMoviesPath, getFormattedAnimeMovieName(animeResult))
+		}
+		downloadEpisode(&fetcherEpisode, episodePath, revItem.Res)
 	}
+
 	return nil
 
 }
 
 func InfiniteLoop() error {
-	log.Println("ANI_AR_REMOTE_GIST_ID: " + remoteGistId)
-	log.Println("ANI_AR_REMOTE_GIST_FILE_NAME: " + gistFileName)
+	log.Println("ANI_AR_REMOTE_GIST: " + remoteGist)
 	log.Println("ANI_AR_ANIME_SHOWS_FOLDER_PATH: " + animeShowsPath)
-	for {
-		err := PerformRevision()
-		if err != nil {
-			return err
-		}
-		time.Sleep(time.Minute * 5)
+	log.Println("ANI_AR_ANIME_MOVIES_FOLDER_PATH: " + animeMoviesPath)
+	err := PerformRevision()
+	if err != nil {
+		return err
 	}
+	// time.Sleep(time.Minute * 5)
+	return nil
 }
