@@ -112,10 +112,10 @@ func main() {
 					animeEpisode, _ := strconv.Atoi(episode)
 					os.MkdirAll(folderPath, 0777)
 					if animeEpisode == 0 {
-						return download.GetDownloader("").
+						return download.GetDownloader(-1).
 							DownloadAllEpisodes(animeTitle, folderPath)
 					}
-					return download.GetDownloader("").
+					return download.GetDownloader(-1).
 						DownloadEpisode(animeTitle, animeEpisode, folderPath)
 				},
 			},

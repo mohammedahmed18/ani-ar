@@ -159,7 +159,7 @@ func extractVideoLinks(response []byte) ([]types.AniVideo, error) {
 			}
 
 			for _, link := range linksResponse.Links {
-
+				println(link.Src)
 				videos = append(videos, types.AniVideo{Src: link.Src, Res: link.ResolutionStr})
 			}
 		}

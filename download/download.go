@@ -46,7 +46,7 @@ func (pw *progressWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func GetDownloader(fetcherName string) *Downloader {
+func GetDownloader(fetcherName int) *Downloader {
 	f, err := fetcher.GetFetcher(fetcherName)
 	if err != nil {
 		f = fetcher.GetDefaultFetcher()

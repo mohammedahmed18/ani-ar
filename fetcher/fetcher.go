@@ -15,14 +15,19 @@ type Fetcher interface {
 	GetEpisodes(types.AniResult) []types.AniEpisode
 }
 
-var fetchers = make(map[string]Fetcher)
+var fetchers = make(map[int]Fetcher)
+
+const (
+	Anime3rbFetcher = iota
+	AllAnimeFetcher
+)
 
 func init() {
-	registerFetcher("anime3rb", anime3rb.GetAnime3rbFetcher())
-	registerFetcher("allanime", allanime.GetAllAnimeFetcher())
+	registerFetcher(Anime3rbFetcher, anime3rb.GetAnime3rbFetcher())
+	registerFetcher(AllAnimeFetcher, allanime.GetAllAnimeFetcher())
 }
 
-func registerFetcher(name string, f Fetcher) error {
+func registerFetcher(name int, f Fetcher) error {
 	if _, ok := fetchers[name]; ok {
 		return errors.New("fetcher already registered")
 	}
@@ -31,7 +36,7 @@ func registerFetcher(name string, f Fetcher) error {
 	return nil
 }
 
-func GetFetcher(name string) (Fetcher, error) {
+func GetFetcher(name int) (Fetcher, error) {
 	if f, ok := fetchers[name]; ok {
 		return f, nil
 	}
@@ -40,6 +45,6 @@ func GetFetcher(name string) (Fetcher, error) {
 
 // TODO: allow user to select the fetcher through args or something
 func GetDefaultFetcher() Fetcher {
-	f, _ := GetFetcher("anime3rb")
+	f, _ := GetFetcher(AllAnimeFetcher)
 	return f
 }
