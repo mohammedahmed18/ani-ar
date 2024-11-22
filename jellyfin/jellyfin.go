@@ -1,7 +1,5 @@
 package jellyfin
 
-// TODO: add more debug logs
-
 import (
 	"errors"
 	"fmt"
@@ -24,12 +22,12 @@ import (
 
 var mu sync.Mutex
 
-var remoteGist string
+var remoteRevisionUrl string
 var animeShowsPath string
 var animeMoviesPath string
 
 func init() {
-	remoteGist = os.Getenv("ANI_AR_REMOTE_GIST")
+	remoteRevisionUrl = os.Getenv("ANI_AR_REMOTE_REVISION_RAW_URL")
 	animeShowsPath = os.Getenv("ANI_AR_ANIME_SHOWS_FOLDER_PATH")
 	animeMoviesPath = os.Getenv("ANI_AR_ANIME_MOVIES_FOLDER_PATH")
 }
@@ -70,22 +68,26 @@ type JellyfinRevisionDiff struct {
 	New string `json:"new"`
 }
 
+func createFirstLocalRevisionFile() (*JellyfinRevision, error) {
+	// config file doesn't exit
+	err := os.MkdirAll(aniArConfigFolderPath, os.ModePerm)
+	if err != nil {
+		return nil, errors.New("couldn't create ani-ar config folder, reason :" + err.Error())
+	}
+	err = os.WriteFile(revisionFilePath, []byte(""), 0755)
+	if err != nil {
+		return nil, errors.New("couldn't create inital revision file, reason :" + err.Error())
+	}
+
+	log.Println("initial revision file is created successfully")
+	return &JellyfinRevision{
+		RevisionId: "(((((0)))))",
+	}, nil
+}
+
 func GetAndParseLocalRevision() (*JellyfinRevision, error) {
 	if _, err := os.Stat(revisionFilePath); errors.Is(err, os.ErrNotExist) {
-		// config file doesn't exit
-		err = os.MkdirAll(aniArConfigFolderPath, os.ModePerm)
-		if err != nil {
-			return nil, errors.New("couldn't create ani-ar config folder, reason :" + err.Error())
-		}
-		err = os.WriteFile(revisionFilePath, []byte(""), 0755)
-		if err != nil {
-			return nil, errors.New("couldn't create inital revision file, reason :" + err.Error())
-		}
-
-		log.Println("initial revision file is created successfully")
-		return &JellyfinRevision{
-			RevisionId: "(((((0)))))",
-		}, nil
+		createFirstLocalRevisionFile()
 	}
 
 	revFile, err := os.Open(revisionFilePath)
@@ -99,10 +101,13 @@ func GetAndParseLocalRevision() (*JellyfinRevision, error) {
 	if err != nil {
 		return nil, errors.New("couldn't read local revision file, reason :" + err.Error())
 	}
-
+	if string(byteValue) == "" {
+		return createFirstLocalRevisionFile()
+	}
 	var rev JellyfinRevision
 	err = json.Unmarshal([]byte(byteValue), &rev)
 	if err != nil {
+
 		return nil, errors.New("couldn't parse the local revision file, reason :" + err.Error())
 	}
 
@@ -113,28 +118,29 @@ func GetAndParseLocalRevision() (*JellyfinRevision, error) {
 	return &rev, nil
 }
 
-func GetRemoteRevision() *JellyfinRevision {
-	gistRawContentUrl := fmt.Sprintf("https://gist.githubusercontent.com/%s/raw", remoteGist)
-	response, err := http.Get(gistRawContentUrl)
+func GetRemoteRevision() (*JellyfinRevision, error) {
+	response, err := http.Get(remoteRevisionUrl)
 	if err != nil {
-		log.Println("Error while requesting the remote revision file, reason: " + err.Error())
-		return nil
+		return nil, errors.New("Error while requesting the remote revision file, reason: " + err.Error())
 	}
 	defer response.Body.Close()
 
 	bytes, err := io.ReadAll(response.Body)
 	if err != nil {
-		log.Println("Error while reading the remote revision file, reason: " + err.Error())
-		return nil
+		return nil, errors.New("Error while reading the remote revision file, reason: " + err.Error())
+
 	}
 	var remoteRev *JellyfinRevision
-	json.Unmarshal(bytes, &remoteRev)
+	err = json.Unmarshal(bytes, &remoteRev)
+	if err != nil {
+		return nil, errors.New("Error while parsing the remote revision file, reason: " + err.Error())
+	}
 
 	if remoteRev.RevisionId != "" {
 		log.Printf("fetched the remote revision config with the id %s\n", remoteRev.RevisionId)
 	}
 
-	return remoteRev
+	return remoteRev, nil
 }
 
 func DiffRevisions(old, new *JellyfinRevision) []*JellyfinRevisionDiff {
@@ -319,7 +325,10 @@ func PerformRevision() error {
 		return err
 	}
 
-	remoteRev := GetRemoteRevision()
+	remoteRev, err := GetRemoteRevision()
+	if err != nil {
+		return err
+	}
 
 	if remoteRev == nil {
 		return errors.New("remote revision config can't be found, make sure you have set `ANI_AR_REMOTE_GIST` environment variable correctly ")
@@ -346,18 +355,28 @@ func PerformRevision() error {
 }
 
 func getFormattedAnimeMovieName(r *api.EnhancedAnimeResult) string {
-	return fmt.Sprintf("%s (%v).strm", r.Details.TitleEnglish, r.Details.Aired.Prop.From.Year)
+	return fmt.Sprintf("%s (%v).strm", r.Details.Title, r.Details.Aired.Prop.From.Year)
 }
 
 func downloadEpisode(aniEpisode *types.AniEpisode, filePath string, res string) error {
 	medias := aniEpisode.GetPlayersWithQuality()
+	resFound := false
+	selectedSrc := ""
 	for _, media := range medias {
 		if media.Res == res {
-			err := os.WriteFile(filePath, []byte(media.Src), 0755)
-			if err != nil {
-				return err
-			}
+			resFound = true
+			selectedSrc = media.Res
 		}
+	}
+	if !resFound {
+		selectedSrc = medias[0].Res
+	}
+	if selectedSrc == "" {
+		return fmt.Errorf("looks like there is no available links for %s", aniEpisode.Anime.DisplayName)
+	}
+	err := os.WriteFile(filePath, []byte(medias[0].Src), 0755)
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -370,7 +389,7 @@ func RemoveJellyfinMedia(revItem *JellyfinRevisionItem) error {
 	}
 	animePath := ""
 	if animeResult.Details.Type == "TV" {
-		animePath = filepath.Join(animeShowsPath, animeResult.Details.TitleEnglish)
+		animePath = filepath.Join(animeShowsPath, animeResult.Details.Title)
 	} else if animeResult.Details.Type == "Movie" {
 		animePath = filepath.Join(animeMoviesPath, getFormattedAnimeMovieName(animeResult))
 	}
@@ -387,18 +406,18 @@ func AddJellyfinMedia(revItem *JellyfinRevisionItem) error {
 	log.Printf("Adding new media item, id: [%s]\n", revItem.ID)
 	animeResult, err := api.GetAnimeEnhancedResults(revItem.ID, fetcher)
 
-	log.Printf("adding a new media [%s] [%s]\n", animeResult.Details.TitleEnglish, animeResult.Details.Type)
+	log.Printf("adding a new media [%s] [%s]\n", animeResult.Details.Title, animeResult.Details.Type)
 
 	if err != nil {
 		return err
 	}
 
 	if animeResult.Details.Type != revItem.Type {
-		return fmt.Errorf("the anime %s is of type %s not %s, make sure you are specifing the correct anime", animeResult.Details.TitleEnglish, animeResult.Details.Type, revItem.Type)
+		return fmt.Errorf("the anime %s is of type %s not %s, make sure you are specifing the correct anime", animeResult.Details.Title, animeResult.Details.Type, revItem.Type)
 	}
 
-	isShow := revItem.Type == "TV"
-	isMovie := revItem.Type == "Movie"
+	isShow := animeResult.Details.Type == "TV"
+	isMovie := animeResult.Details.Type == "Movie"
 
 	animePath := ""
 
@@ -409,7 +428,7 @@ func AddJellyfinMedia(revItem *JellyfinRevisionItem) error {
 	}
 
 	if isShow {
-		animePath = filepath.Join(animeShowsPath, animeResult.Details.TitleEnglish, fmt.Sprintf("Season %v", season))
+		animePath = filepath.Join(animeShowsPath, animeResult.Details.Title, fmt.Sprintf("Season %v", season))
 	} else if isMovie {
 		animePath = filepath.Join(animeMoviesPath)
 	}
@@ -424,12 +443,12 @@ func AddJellyfinMedia(revItem *JellyfinRevisionItem) error {
 	// adding episodes
 	fetcherEpisodes := fetcher.GetEpisodes(*animeResult.Data)
 	for episodeIdx := range animeResult.Data.Episodes {
-		log.Printf("adding episode [%v] of [%s]\n", episodeIdx+1, animeResult.Details.TitleEnglish)
+		log.Printf("adding episode [%v] of [%s]\n", episodeIdx+1, animeResult.Details.Title)
 
 		fetcherEpisode := fetcherEpisodes[episodeIdx]
 		episodePath := ""
 		if isShow {
-			episodeFileName := fmt.Sprintf("%s S%vE%v.strm", animeResult.Details.TitleEnglish, season, episodeIdx+1)
+			episodeFileName := fmt.Sprintf("%s S%vE%v.strm", animeResult.Details.Title, season, episodeIdx+1)
 			episodePath = filepath.Join(animePath, episodeFileName)
 		}
 		if isMovie {
@@ -472,7 +491,7 @@ func RefreshLocalMediaItems() error {
 }
 
 func InfiniteLoop() error {
-	log.Println("ANI_AR_REMOTE_GIST: " + remoteGist)
+	log.Println("ANI_AR_REMOTE_REVISION_RAW_URL: " + remoteRevisionUrl)
 	log.Println("ANI_AR_ANIME_SHOWS_FOLDER_PATH: " + animeShowsPath)
 	log.Println("ANI_AR_ANIME_MOVIES_FOLDER_PATH: " + animeMoviesPath)
 	println(`
@@ -488,11 +507,7 @@ func InfiniteLoop() error {
 															
 	`)
 
-	err := RefreshLocalMediaItems()
-	if err != nil {
-		log.Printf("Error refreshing media items: %v", err)
-	}
-
+	// TODO: let the user choose the interval
 	go func() {
 		ticker := time.NewTicker(time.Hour * 2)
 		defer ticker.Stop()

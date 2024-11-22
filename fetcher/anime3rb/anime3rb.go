@@ -1,4 +1,4 @@
-package fetcher
+package anime3rb
 
 import (
 	"encoding/json"
@@ -21,7 +21,7 @@ type Anime3rb struct {
 	C *cache.Cache
 }
 
-func getAnime3rbFetcher() Fetcher {
+func GetAnime3rbFetcher() *Anime3rb {
 	return &Anime3rb{
 		C: cache.New(5*time.Minute, 10*time.Minute),
 	}
@@ -29,30 +29,30 @@ func getAnime3rbFetcher() Fetcher {
 
 const baseUrl = "https://anime3rb.com"
 
-func (a *Anime3rb) getToken() string {
-	res, err := http.Get(baseUrl)
-	if err != nil {
-		fmt.Println(err.Error())
-		return ""
-	}
-	b, err := io.ReadAll(res.Body)
-	defer res.Body.Close()
-	if err != nil {
-		fmt.Println(err.Error())
-		return ""
-	}
+// func (a *Anime3rb) getToken() string {
+// 	res, err := http.Get(baseUrl)
+// 	if err != nil {
+// 		fmt.Println(err.Error())
+// 		return ""
+// 	}
+// 	b, err := io.ReadAll(res.Body)
+// 	defer res.Body.Close()
+// 	if err != nil {
+// 		fmt.Println(err.Error())
+// 		return ""
+// 	}
 
-	html := string(b)
+// 	html := string(b)
 
-	re := regexp.MustCompile(`<meta\s+name="csrf-token"\s+content="([^"]+)"`)
-	matches := re.FindStringSubmatch(html)
-	if len(matches) > 1 {
-		return matches[1]
-	} else {
-		fmt.Println("CSRF Token not found")
-		return ""
-	}
-}
+// 	re := regexp.MustCompile(`<meta\s+name="csrf-token"\s+content="([^"]+)"`)
+// 	matches := re.FindStringSubmatch(html)
+// 	if len(matches) > 1 {
+// 		return matches[1]
+// 	} else {
+// 		fmt.Println("CSRF Token not found")
+// 		return ""
+// 	}
+// }
 
 func (a *Anime3rb) GetAnimeResult(title string) *types.AniResult {
 	cacheKey := "anime:" + title

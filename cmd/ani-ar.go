@@ -30,6 +30,14 @@ func main() {
 				Action: func(ctx *cli.Context) error {
 					return jellyfin.InfiniteLoop()
 				},
+				Subcommands: []*cli.Command{
+					{
+						Name: "refetch",
+						Action: func(ctx *cli.Context) error {
+							return jellyfin.RefreshLocalMediaItems()
+						},
+					},
+				},
 			},
 			{
 				Name:  "serve",
@@ -64,7 +72,7 @@ func main() {
 					}
 					// display results
 					for _, r := range results {
-						fmt.Printf("%s (%v episode(s))\n", r.Id, r.Episodes)
+						fmt.Printf("%s - {id: %s} (%v episode(s))\n", r.DisplayName, r.Id, r.Episodes)
 					}
 					return nil
 				},

@@ -1,22 +1,25 @@
 package fetcher
 
+// TODO: use plugin system for fetches and make them open source to allow people make their own fetchers
 import (
 	"errors"
 
+	"github.com/ani/ani-ar/fetcher/allanime"
+	"github.com/ani/ani-ar/fetcher/anime3rb"
 	"github.com/ani/ani-ar/types"
 )
 
 type Fetcher interface {
-	GetAnimeResult(string) *types.AniResult
-	Search(string) []types.AniResult
+	Search(q string) []types.AniResult
+	GetAnimeResult(id string) *types.AniResult
 	GetEpisodes(types.AniResult) []types.AniEpisode
 }
 
 var fetchers = make(map[string]Fetcher)
 
 func init() {
-	registerFetcher("anime3rb", getAnime3rbFetcher())
-	registerFetcher("anime4up", getAnime4upFetcher())
+	registerFetcher("anime3rb", anime3rb.GetAnime3rbFetcher())
+	registerFetcher("allanime", allanime.GetAllAnimeFetcher())
 }
 
 func registerFetcher(name string, f Fetcher) error {
