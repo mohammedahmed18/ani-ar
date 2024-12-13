@@ -33,6 +33,7 @@ require (
 	github.com/deckarep/golang-set/v2 v2.7.0 // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/go-jose/go-jose/v3 v3.0.3 // indirect
+	github.com/go-python/cpy3 v0.2.0 // indirect
 	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/klauspost/compress v1.17.11 // indirect
