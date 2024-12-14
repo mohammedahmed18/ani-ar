@@ -5,6 +5,7 @@ type AniResult struct {
 	DisplayName        string                      `json:"displayName"`
 	Episodes           int                         `json:"episodes"`
 	DisplayCover       string                      `json:"displayCover"`
+	Type               string                      `json:"type"` // TV or Movie
 	EpisodeIdFormatter func(episodeNum int) string `json:"-"`
 }
 type AniVideo struct {

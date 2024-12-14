@@ -4,10 +4,13 @@ import (
 	_ "embed"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os/exec"
 	"regexp"
+	"runtime"
 	"strings"
+	"time"
 
 	"github.com/ani/ani-ar/types"
 	"github.com/goccy/go-json"
@@ -26,8 +29,21 @@ func GetEgyDeadFetcher() *EgydeadFetcher {
 	return &EgydeadFetcher{}
 }
 func (e *EgydeadFetcher) Search(q string) []types.AniResult {
+	defer TimeTrack(time.Now())
+	searchUrl := fmt.Sprintf("%s/wp-content/themes/egydeadc-taq/Ajax/live-search.php", baseUrl)
+	args := []string{"-", "-c", "search", "-su", searchUrl, "-q", q}
+	c := exec.Command("python3", args...)
+	c.Stdin = strings.NewReader(browserScript)
+	output, err := c.Output()
+	if err != nil {
+		fmt.Println("error while executing the python script: ", err)
+		return nil
+	}
+
+	_ = string(output)
 	return []types.AniResult{}
 }
+
 func (e *EgydeadFetcher) GetAnimeResult(id string) *types.AniResult {
 	return nil
 }
@@ -47,9 +63,26 @@ func (e *EgydeadFetcher) GetEpisodes(r types.AniResult) []types.AniEpisode {
 	}
 	return episodes
 }
+func TimeTrack(start time.Time) {
+	elapsed := time.Since(start)
+
+	// Skip this function, and fetch the PC and file for its parent.
+	pc, _, _, _ := runtime.Caller(1)
+
+	// Retrieve a function object this functions parent.
+	funcObj := runtime.FuncForPC(pc)
+
+	// Regex to extract just the function name (and not the module path).
+	runtimeFunc := regexp.MustCompile(`^.*\.(.*)$`)
+	name := runtimeFunc.ReplaceAllString(funcObj.Name(), "$1")
+
+	log.Printf("%s took %s\n", name, elapsed)
+}
 
 func (e *EgydeadFetcher) getMediasForEpisode(epUrl string) []types.AniVideo {
-	args := []string{"-", epUrl}
+	defer TimeTrack(time.Now())
+
+	args := []string{"-", "--command", "episode_servers", "--links", epUrl}
 	c := exec.Command("python3", args...)
 	c.Stdin = strings.NewReader(browserScript)
 	output, err := c.Output()
@@ -98,7 +131,6 @@ func (e *EgydeadFetcher) getMediasForEpisode(epUrl string) []types.AniVideo {
 	matches = re.FindStringSubmatch(original)
 
 	epFinalStreamUrl := strings.TrimPrefix(matches[0], "file:\"")
-	println(epFinalStreamUrl)
 	return []types.AniVideo{
 		{
 			Src: epFinalStreamUrl,

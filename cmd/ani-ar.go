@@ -14,12 +14,23 @@ import (
 	"github.com/ani/ani-ar/api"
 	"github.com/ani/ani-ar/download"
 	"github.com/ani/ani-ar/fetcher"
+	"github.com/ani/ani-ar/fetcher/egydead"
 	"github.com/ani/ani-ar/gui"
 	"github.com/ani/ani-ar/jellyfin"
 	"github.com/ani/ani-ar/player"
 )
 
 func main() {
+	// e := egydead.GetEgyDeadFetcher().GetEpisodes(types.AniResult{
+	// 	Episodes: 1,
+	// 	EpisodeIdFormatter: func(episodeNum int) string {
+	// 		return fmt.Sprintf("مسلسل-you-الموسم-الرابع-الحلقة-%v-مترجمة", episodeNum)
+	// 	},
+	// })
+
+	// e[0].GetPlayersWithQuality()
+	egydead.GetEgyDeadFetcher().Search("hunter x hunter")
+	return
 	app := &cli.App{
 		Name:  "ani-ar",
 		Usage: "watch anime from terminal with arabic sub",
