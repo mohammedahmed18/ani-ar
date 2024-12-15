@@ -322,7 +322,7 @@ func writeNewRevLocally(newRev *JellyfinRevision) error {
 }
 
 func PerformRevision() error {
-	currentRev, err := GetAndParseLocalRevision()
+	localRev, err := GetAndParseLocalRevision()
 	if err != nil {
 		return err
 	}
@@ -336,13 +336,13 @@ func PerformRevision() error {
 		return errors.New("remote revision config can't be found, make sure you have set `ANI_AR_REMOTE_GIST` environment variable correctly ")
 	}
 
-	diffs := DiffRevisions(currentRev, remoteRev)
+	diffs := DiffRevisions(localRev, remoteRev)
 	if len(diffs) == 0 {
 		log.Println("No diffs to to perform, all good")
 		return nil
 	}
 
-	updatedRev, err := ProcessDiff(diffs, currentRev, remoteRev.RevisionId)
+	updatedRev, err := ProcessDiff(diffs, localRev, remoteRev.RevisionId)
 	if err != nil {
 		return errors.New("error while processing the diffs, reason: " + err.Error())
 	}
