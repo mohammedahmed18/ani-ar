@@ -6,6 +6,7 @@ import (
 
 	"github.com/ani/ani-ar/fetcher/allanime"
 	"github.com/ani/ani-ar/fetcher/anime3rb"
+	"github.com/ani/ani-ar/fetcher/egydead"
 	"github.com/ani/ani-ar/types"
 )
 
@@ -20,6 +21,7 @@ var fetchers = make(map[string]Fetcher)
 func init() {
 	registerFetcher("anime3rb", anime3rb.GetAnime3rbFetcher())
 	registerFetcher("allanime", allanime.GetAllAnimeFetcher())
+	registerFetcher("egydead", egydead.GetEgyDeadFetcher())
 }
 
 func registerFetcher(name string, f Fetcher) error {
