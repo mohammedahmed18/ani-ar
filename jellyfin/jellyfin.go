@@ -44,6 +44,8 @@ type JellyfinRevisionItem struct {
 	Res string `json:"res"`
 	// season number, eg: 1, 2 , 3 (default 1)
 	Season int `json:"season"`
+
+	CanBeEnhanced bool `json:"canBeEnhanced"`
 }
 
 type JellyfinRevision struct {
@@ -153,48 +155,48 @@ func DiffRevisions(old, new *JellyfinRevision) []*JellyfinRevisionDiff {
 
 	var diffs []*JellyfinRevisionDiff
 	checkedNewRevisions := make(map[string]interface{})
-	for oldIdx, oldRevItem := range old.Items {
+	for oldIdx, localRevItem := range old.Items {
 		// search for the match
 		found := false
-		for _, newRevItem := range new.Items {
-			if oldRevItem.ID == newRevItem.ID {
-				checkedNewRevisions[newRevItem.ID] = ""
+		for _, remoteRevItem := range new.Items {
+			if localRevItem.ID == remoteRevItem.ID {
+				checkedNewRevisions[remoteRevItem.ID] = ""
 				found = true
 				// (same id exist in both revisions) check for updates
 				updateDiff := &JellyfinRevisionDiff{
 					Mode: fmt.Sprintf("UPDATE:%v", oldIdx),
 				}
 				changed := false
-				if oldRevItem.Type != newRevItem.Type {
+				if localRevItem.Type != remoteRevItem.Type {
 					updateDiff.KeyNum = revKeyType
-					updateDiff.New = newRevItem.Type
+					updateDiff.New = remoteRevItem.Type
 					changed = true
 				}
-				if oldRevItem.Res != newRevItem.Res {
+				if localRevItem.Res != remoteRevItem.Res {
 					updateDiff.KeyNum = revKeyRes
-					updateDiff.New = newRevItem.Res
+					updateDiff.New = remoteRevItem.Res
 					changed = true
 				}
-				if oldRevItem.Season != 0 && newRevItem.Season == 0 {
-					// the season number was removed from the remote revision config, then we will set this to season 1
+
+				if remoteRevItem.Season == 0 {
+					remoteRevItem.Season = 1
+				}
+
+				if localRevItem.Season != remoteRevItem.Season {
 					updateDiff.KeyNum = revKeySeason
-					updateDiff.New = fmt.Sprintf("%v", 1)
+					updateDiff.New = fmt.Sprintf("%v", remoteRevItem.Season)
 					changed = true
 				}
-				if oldRevItem.Season != newRevItem.Season {
-					updateDiff.KeyNum = revKeySeason
-					updateDiff.New = fmt.Sprintf("%v", newRevItem.Season)
-					changed = true
-				}
+
 				if changed {
-					log.Printf("[diif] revision item %s got changed\n", newRevItem.ID)
+					log.Printf("[diif] revision item %s got changed\n", remoteRevItem.ID)
 					diffs = append(diffs, updateDiff)
 				}
 			}
 		}
 		if !found {
 			// old rev was not found in the new, delete it
-			log.Printf("[diif] revision item %s deleted\n", oldRevItem.ID)
+			log.Printf("[diif] revision item %s deleted\n", localRevItem.ID)
 			diffs = append(diffs, &JellyfinRevisionDiff{
 				Mode:   fmt.Sprintf("DEL:%v", oldIdx),
 				KeyNum: revKeyId,
@@ -368,11 +370,12 @@ func downloadEpisode(aniEpisode *types.AniEpisode, filePath string, res string) 
 			selectedSrc = media.Res
 		}
 	}
-	if !resFound {
+	if !resFound && len(medias) > 0 {
 		selectedSrc = medias[0].Res
 	}
 	if selectedSrc == "" {
-		return fmt.Errorf("looks like there is no available links for %s", aniEpisode.Anime.DisplayName)
+		log.Printf("looks like there is no available links for %s episode %v, skipping", aniEpisode.Anime.DisplayName, aniEpisode.Number)
+		return nil
 	}
 	err := os.WriteFile(filePath, []byte(medias[0].Src), 0755)
 	if err != nil {
@@ -380,18 +383,44 @@ func downloadEpisode(aniEpisode *types.AniEpisode, filePath string, res string) 
 	}
 	return nil
 }
+func getEnhancedResultForJellyfin(revItem *JellyfinRevisionItem) (*api.EnhancedAnimeResult, error) {
+	fetcher := fetcher.GetDefaultFetcher()
+
+	var enhancedAnimeResult *api.EnhancedAnimeResult
+	if revItem.CanBeEnhanced {
+		r, err := api.GetAnimeEnhancedResults(revItem.ID, fetcher)
+		if err != nil {
+			return nil, err
+		}
+		enhancedAnimeResult = r
+	} else {
+		// some revitem ids can't be enhanced because it has random string as id, instead of reaadable title or mal id
+		anime := fetcher.GetAnimeResult(revItem.ID)
+
+		enhancedAnimeResult = &api.EnhancedAnimeResult{
+			Data: anime,
+		}
+		enhancedAnimeResult.Details = &api.JikanAnimeInfo{
+			Title: anime.DisplayName,
+			Type:  revItem.Type,
+		}
+		// TODO: fix this year
+		enhancedAnimeResult.Details.Aired.Prop.From.Year = 2005
+	}
+
+	return enhancedAnimeResult, nil
+}
 
 func RemoveJellyfinMedia(revItem *JellyfinRevisionItem) error {
-	fetcher := fetcher.GetDefaultFetcher()
-	animeResult, err := api.GetAnimeEnhancedResults(revItem.ID, fetcher)
+	enhancedAnimeResult, err := getEnhancedResultForJellyfin(revItem)
 	if err != nil {
 		return err
 	}
 	animePath := ""
-	if animeResult.Details.Type == "TV" {
-		animePath = filepath.Join(animeShowsPath, animeResult.Details.Title)
-	} else if animeResult.Details.Type == "Movie" {
-		animePath = filepath.Join(animeMoviesPath, getFormattedAnimeMovieName(animeResult))
+	if enhancedAnimeResult.Details.Type == "TV" {
+		animePath = filepath.Join(animeShowsPath, enhancedAnimeResult.Details.Title)
+	} else if enhancedAnimeResult.Details.Type == "Movie" {
+		animePath = filepath.Join(animeMoviesPath, getFormattedAnimeMovieName(enhancedAnimeResult))
 	}
 
 	err = os.RemoveAll(animePath)
@@ -404,20 +433,18 @@ func RemoveJellyfinMedia(revItem *JellyfinRevisionItem) error {
 func AddJellyfinMedia(revItem *JellyfinRevisionItem) error {
 	fetcher := fetcher.GetDefaultFetcher()
 	log.Printf("Adding new media item, id: [%s]\n", revItem.ID)
-	animeResult, err := api.GetAnimeEnhancedResults(revItem.ID, fetcher)
 
-	log.Printf("adding a new media [%s] [%s]\n", animeResult.Details.Title, animeResult.Details.Type)
-
+	enhancedAnimeResult, err := getEnhancedResultForJellyfin(revItem)
 	if err != nil {
 		return err
 	}
 
-	if animeResult.Details.Type != revItem.Type {
-		return fmt.Errorf("the anime %s is of type %s not %s, make sure you are specifing the correct anime", animeResult.Details.Title, animeResult.Details.Type, revItem.Type)
+	if enhancedAnimeResult.Details.Type != revItem.Type {
+		return fmt.Errorf("the anime %s is of type %s not %s, make sure you are specifing the correct anime", enhancedAnimeResult.Details.Title, enhancedAnimeResult.Details.Type, revItem.Type)
 	}
 
-	isShow := animeResult.Details.Type == "TV"
-	isMovie := animeResult.Details.Type == "Movie"
+	isShow := enhancedAnimeResult.Details.Type == "TV"
+	isMovie := enhancedAnimeResult.Details.Type == "Movie"
 
 	animePath := ""
 
@@ -428,7 +455,7 @@ func AddJellyfinMedia(revItem *JellyfinRevisionItem) error {
 	}
 
 	if isShow {
-		animePath = filepath.Join(animeShowsPath, animeResult.Details.Title, fmt.Sprintf("Season %v", season))
+		animePath = filepath.Join(animeShowsPath, enhancedAnimeResult.Details.Title, fmt.Sprintf("Season %v", season))
 	} else if isMovie {
 		animePath = filepath.Join(animeMoviesPath)
 	}
@@ -441,18 +468,18 @@ func AddJellyfinMedia(revItem *JellyfinRevisionItem) error {
 	}
 
 	// adding episodes
-	fetcherEpisodes := fetcher.GetEpisodes(*animeResult.Data)
-	for episodeIdx := range animeResult.Data.Episodes {
-		log.Printf("adding episode [%v] of [%s]\n", episodeIdx+1, animeResult.Details.Title)
+	fetcherEpisodes := fetcher.GetEpisodes(*enhancedAnimeResult.Data)
+	for episodeIdx := range enhancedAnimeResult.Data.Episodes {
+		log.Printf("adding episode [%v] of [%s]\n", episodeIdx+1, enhancedAnimeResult.Details.Title)
 
 		fetcherEpisode := fetcherEpisodes[episodeIdx]
 		episodePath := ""
 		if isShow {
-			episodeFileName := fmt.Sprintf("%s S%vE%v.strm", animeResult.Details.Title, season, episodeIdx+1)
+			episodeFileName := fmt.Sprintf("%s S%vE%v.strm", enhancedAnimeResult.Details.Title, season, episodeIdx+1)
 			episodePath = filepath.Join(animePath, episodeFileName)
 		}
 		if isMovie {
-			episodePath = filepath.Join(animeMoviesPath, getFormattedAnimeMovieName(animeResult))
+			episodePath = filepath.Join(animeMoviesPath, getFormattedAnimeMovieName(enhancedAnimeResult))
 		}
 		downloadEpisode(&fetcherEpisode, episodePath, revItem.Res)
 	}

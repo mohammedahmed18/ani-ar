@@ -12,6 +12,7 @@ import (
 
 	"github.com/ani/ani-ar/types"
 	"github.com/goccy/go-json"
+	"gopkg.in/vansante/go-ffprobe.v2"
 )
 
 type AllAnimeFetcher struct{}
@@ -39,6 +40,7 @@ func (a *AllAnimeFetcher) Search(q string) []types.AniResult {
 			edges {
 				_id
 				name
+				availableEpisodes
 				episodeCount
 				thumbnail
 			}
@@ -60,11 +62,15 @@ func (a *AllAnimeFetcher) Search(q string) []types.AniResult {
 	var results []types.AniResult
 
 	for _, item := range decodedResponse.Data.Shows.Edges {
-		episodesCount, _ := strconv.Atoi(item.EpisodeCount)
+		availableEpisodes, found := item.AvailableEpisodes[vars.TranslationType]
+		if !found {
+			availableEpisodes, _ = strconv.Atoi(item.EpisodeCount)
+
+		}
 		results = append(results, types.AniResult{
 			Id:           item.Id,
 			DisplayName:  item.Name,
-			Episodes:     episodesCount,
+			Episodes:     availableEpisodes,
 			DisplayCover: item.Thumbnail,
 		})
 	}
@@ -80,6 +86,7 @@ func (a *AllAnimeFetcher) GetAnimeResult(id string) *types.AniResult {
      _id
      name
      episodeCount
+	 availableEpisodes
      thumbnail
     }
   }`
@@ -97,13 +104,19 @@ func (a *AllAnimeFetcher) GetAnimeResult(id string) *types.AniResult {
 		return nil
 	}
 
-	episodesCount, _ := strconv.Atoi(decodedResponse.Data.Show.EpisodeCount)
+	show := decodedResponse.Data.Show
+	// TODO: recieve the translationType through vars
+	availableEpisodes, found := show.AvailableEpisodes[subType]
+	if !found {
+		availableEpisodes, _ = strconv.Atoi(show.EpisodeCount)
+
+	}
 
 	return &types.AniResult{
 		Id:           decodedResponse.Data.Show.Id,
 		DisplayName:  decodedResponse.Data.Show.Name,
 		DisplayCover: decodedResponse.Data.Show.Thumbnail,
-		Episodes:     episodesCount,
+		Episodes:     availableEpisodes,
 	}
 
 }
@@ -159,8 +172,19 @@ func extractVideoLinks(response []byte) ([]types.AniVideo, error) {
 			}
 
 			for _, link := range linksResponse.Links {
-				println(link.Src)
-				videos = append(videos, types.AniVideo{Src: link.Src, Res: link.ResolutionStr})
+				height := link.ResolutionStr
+				// ctx, cancelFn := context.WithTimeout(context.Background(), 9*time.Second)
+				// defer cancelFn()
+				// data, err := ffprobe.ProbeURL(ctx, link.Src)
+				// if err != nil {
+				// 	return nil, err
+				// }
+				// height := fmt.Sprintf("%v", getHightFromFfprobe(data))
+				// if height == "0" {
+				// 	height = link.ResolutionStr
+				// }
+
+				videos = append(videos, types.AniVideo{Src: link.Src, Res: height})
 			}
 		}
 		// //////////////////// S-mp4 source ///////////////////////
@@ -168,6 +192,14 @@ func extractVideoLinks(response []byte) ([]types.AniVideo, error) {
 	}
 	return videos, nil
 
+}
+func getHightFromFfprobe(data *ffprobe.ProbeData) int {
+	for _, stream := range data.Streams {
+		if stream.Height > 0 {
+			return stream.Height
+		}
+	}
+	return 0
 }
 
 func (a *AllAnimeFetcher) lazyLoadEpisodeVideos(r types.AniResult, episodeNum int) ([]types.AniVideo, error) {

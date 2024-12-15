@@ -45,6 +45,6 @@ func GetFetcher(name int) (Fetcher, error) {
 
 // TODO: allow user to select the fetcher through args or something
 func GetDefaultFetcher() Fetcher {
-	f, _ := GetFetcher(AllAnimeFetcher)
+	f, _ := GetFetcher(Anime3rbFetcher)
 	return f
 }

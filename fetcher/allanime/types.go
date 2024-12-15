@@ -23,10 +23,11 @@ type AllAnimeEpisodesVariables struct {
 }
 
 type AllAnimeShow struct {
-	Id           string `json:"_id"`
-	Name         string `json:"name"`
-	EpisodeCount string `json:"episodeCount"`
-	Thumbnail    string `json:"thumbnail"`
+	Id                string         `json:"_id"`
+	Name              string         `json:"name"`
+	AvailableEpisodes map[string]int `json:"availableEpisodes"`
+	EpisodeCount      string         `json:"episodeCount"`
+	Thumbnail         string         `json:"thumbnail"`
 }
 
 type AllAnimeShowsData struct {

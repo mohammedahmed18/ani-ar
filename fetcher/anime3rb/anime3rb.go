@@ -278,6 +278,10 @@ func (a *Anime3rb) getLazyEpisodeGetterFunc(url string) func() string {
 				}
 			}
 		}
+		if len(medias) == 0 {
+			log.Printf("[Anime3rb] no video sources found for %s\n", url)
+			return ""
+		}
 		return medias[0].Src
 	}
 }
